@@ -53,7 +53,7 @@
     }
 
     body.gameOnly #gameCard {
-      display:block !important;
+    
       height: calc(100vh - 16px);
       overflow: hidden;
       padding: 8px;
@@ -691,10 +691,18 @@ book | 책 | 북"></textarea>
     toggleGameOnly.textContent = document.body.classList.contains("gameOnly") ? "↩️" : "📱";
   }
   toggleGameOnly.addEventListener("click", () => setGameOnly(!document.body.classList.contains("gameOnly")));
-  function autoGameOnlyOnMobile() {
-    const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
-    if (isMobile) setGameOnly(true);
+function autoGameOnlyOnMobile() {
+  const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+  if (!isMobile) return;
+
+  setGameOnly(true);
+
+  // ✅ 폰에서는 들어오자마자 자동으로 퀴즈 시작
+  // (단어가 최소 4개 있어야 시작 가능)
+  if (words.length >= 4) {
+    startQuiz(modeSel.value);   // 기본은 1단계: 뜻
   }
+}
 
   // 출제 풀
   function weeklyWords(){ return words.filter(w=>w.weekly); }
@@ -995,3 +1003,4 @@ book | 책 | 북"></textarea>
 </script>
 </body>
 </html>
+
