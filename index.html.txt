@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>단어 게임 v4 (주간/누적 + 보상 + 복습 + 음성 + 조각 스펠링)</title>
+  <style>
+    :root { --gap: 12px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif; margin: 0; background:#f6f7fb; }
+    header { padding: 14px 12px; background: white; border-bottom: 1px solid #e7e7ee; position: sticky; top:0; z-index: 10; }
+    main { max-width: 980px; margin: 0 auto; padding: 12px; display: grid; gap: 12px; }
+    .card { background: white; border:1px solid #e7e7ee; border-radius: 16px; padding: 14px; box-shadow: 0 4px 14px rgba(10,10,20,.04); }
+    .row { display:flex; gap: var(--gap); flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 1; min-width: 140px; }
+    input, select, button, textarea {
+      font: inherit; padding: 12px 12px; border-radius: 12px; border: 1px solid #d9d9e6; background: white;
+    }
+    textarea { width:100%; min-height: 90px; }
+    button { cursor:pointer; border:1px solid #cfcfe2; background:#111827; color:white; }
+    button.secondary { background:white; color:#111827; }
+    button.ghost { background: #eef2ff; color:#111827; border-color:#d6dcff; }
+    button.danger { background:#b91c1c; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+
+    .pill { display:inline-flex; gap:8px; align-items:center; padding: 6px 10px; background:#eef2ff; border:1px solid #d6dcff; border-radius:999px; font-size: 13px; }
+    .big { font-size: 34px; font-weight: 900; letter-spacing: .4px; }
+    .muted { color:#6b7280; font-size: 13px; }
+    .progress { height:10px; background:#eef2ff; border:1px solid #d6dcff; border-radius:999px; overflow:hidden; }
+    .bar { height:100%; background:#4f46e5; width:0%; }
+    .options { display:grid; gap: 10px; }
+    .options button { text-align:left; background:white; color:#111827; font-size: 18px; padding: 16px 14px; }
+    .options button.correct { border-color:#16a34a; background:#ecfdf3; }
+    .options button.wrong { border-color:#dc2626; background:#fff1f2; }
+
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 2px 6px; border:1px solid #e5e7eb; border-radius: 6px; background:#f9fafb; }
+    .list { width:100%; border-collapse: collapse; }
+    .list th, .list td { border-bottom: 1px solid #eee; padding: 8px; text-align:left; font-size: 14px; vertical-align: middle; }
+    .right { text-align:right; }
+    .chk { width:18px; height:18px; vertical-align: middle; }
+
+    .gameOnly header, .gameOnly #adminCard, .gameOnly #listCard { display:none !important; }
+    .gameOnly main { padding: 10px; }
+    .gameOnly #gameCard { display:block !important; }
+
+    .chunkCard { border: 1px solid #e7e7ee; border-radius: 14px; padding: 12px; background: #fff; }
+  </style>
+</head>
+
+<body>
+<header>
+  <div class="row" style="max-width:980px;margin:0 auto;">
+    <div style="flex:2;min-width:220px;">
+      <div style="font-weight:900;">단어 게임 v4</div>
+      <div class="muted">주간/누적 + 보상 + 틀린단어 복습 + 정답 음성 + 스펠링(조각 선택)</div>
+    </div>
+    <div class="row" style="justify-content:flex-end; flex:1;">
+      <span class="pill" id="countPill">단어 0개</span>
+      <select id="mode">
+        <option value="meaning">1단계: 뜻</option>
+        <option value="pron">2단계: 발음(한글)</option>
+        <option value="spelling">3단계: 스펠링(조각)</option>
+      </select>
+      <button class="ghost" id="startBtn">시작</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="card" id="adminCard">
+    <div class="row">
+      <div style="flex:2;min-width:240px;">
+        <div style="font-weight:900;">단어 관리</div>
+        <div class="muted">처음 접속 시 기본 단어가 자동으로 들어갑니다(폰 포함). 이후 추가/수정도 자동 저장됩니다.</div>
+      </div>
+      <div class="right" style="flex:1;">
+        <button class="secondary" id="exportBtn">내보내기(JSON)</button>
+        <button class="secondary" id="importBtn">가져오기(JSON)</button>
+        <button class="danger" id="resetBtn">전체 삭제</button>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px;">
+      <input id="w_en" placeholder="영단어 (예: school)" autocomplete="off" />
+      <input id="w_ko" placeholder="뜻 (예: 학교)" autocomplete="off" />
+      <input id="w_pron" placeholder="발음(한글) (예: 스쿨)" autocomplete="off" />
+      <label class="pill" style="flex:0;min-width:auto;">
+        <input type="checkbox" id="w_week" class="chk" />
+        이번 주
+      </label>
+      <button id="addBtn">추가</button>
+    </div>
+
+    <details style="margin-top:12px;">
+      <summary class="muted">대량 입력(간단): 영어만 / 또는 영어|뜻|발음|week</summary>
+      <textarea id="bulk" placeholder="예)
+school
+book
+pizza
+
+또는
+school | 학교 | 스쿨 | week
+book | 책 | 북"></textarea>
+      <div class="row" style="margin-top:8px;">
+        <button class="secondary" id="bulkAddBtn">대량 추가</button>
+        <span class="muted">영어만 넣으면 뜻/발음은 빈칸으로 들어갑니다.</span>
+      </div>
+    </details>
+
+    <div class="row" style="margin-top:12px;">
+      <button class="secondary" id="clearWeeklyBtn">이번 주 전체 해제</button>
+      <button class="secondary" id="markAllWeeklyBtn">전체를 이번 주로</button>
+      <span class="muted">※ 새 주 시작 시 “이번 주 전체 해제” → 새 10~20개만 체크</span>
+    </div>
+  </section>
+
+  <section class="card" id="gameCard" style="display:none;">
+    <div class="row">
+      <div style="flex:2;">
+        <div class="muted" id="stageLabel">단계</div>
+        <div class="big" id="prompt">-</div>
+        <div class="muted" id="hint"></div>
+
+        <div class="row" style="margin-top:10px;">
+          <select id="scope">
+            <option value="weekly">출제: 이번 주</option>
+            <option value="all">출제: 누적(전체)</option>
+          </select>
+          <button class="secondary" id="reviewBtn">복습(틀린 단어)</button>
+          <button class="secondary" id="speakBtn">🔊 정답 발음</button>
+          <label class="pill" style="gap:10px; flex:0; min-width:auto;">
+            <input type="checkbox" id="autoSpeak" class="chk" />
+            정답 시 자동
+          </label>
+          <button class="secondary" id="toggleGameOnly">📱 게임화면만</button>
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <span class="pill" id="starsPill">⭐ 0</span>
+          <span class="pill" id="stickersPill">🏅 0</span>
+          <button class="ghost" id="rewardBtn">보상 받기</button>
+          <span class="muted" id="rewardHint"></span>
+        </div>
+
+        <div class="muted" id="ttsNote" style="margin-top:6px;"></div>
+      </div>
+
+      <div style="flex:1; min-width:240px;">
+        <div class="progress"><div class="bar" id="bar"></div></div>
+        <div class="row" style="margin-top:10px;">
+          <span class="pill" id="scorePill">점수 0</span>
+          <span class="pill" id="idxPill">0 / 0</span>
+          <span class="pill" id="streakPill">연속 0</span>
+          <button class="secondary" id="skipBtn">건너뛰기</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="options" id="options"></div>
+    </div>
+
+    <div id="chunkArea" style="display:none; margin-top:12px;">
+      <div class="muted">조각을 순서대로 골라 단어를 완성하세요.</div>
+      <div id="chunkSlots" style="display:grid; gap:10px; margin-top:10px;"></div>
+      <div class="row" style="margin-top:12px;">
+        <span class="pill" id="builtWordPill">완성: </span>
+        <button class="secondary" id="resetChunksBtn">처음부터</button>
+        <button class="ghost" id="checkChunksBtn">정답 확인</button>
+      </div>
+      <div class="muted" id="chunkFeedback" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="row" style="margin-top:14px;">
+      <button id="nextBtn" class="ghost" style="display:none;">다음</button>
+      <span class="muted" id="feedback"></span>
+    </div>
+  </section>
+
+  <section class="card" id="listCard">
+    <div class="row">
+      <div style="flex:2;">
+        <div style="font-weight:900;">단어 목록</div>
+        <div class="muted">수정/삭제 + “이번 주” 체크</div>
+      </div>
+    </div>
+    <div style="overflow:auto; margin-top:10px;">
+      <table class="list">
+        <thead>
+          <tr><th>이번 주</th><th>영단어</th><th>뜻</th><th>발음(한글)</th><th class="right">관리</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const LS_WORDS = "kid_vocab_v4_words";
+  const LS_TTS   = "kid_vocab_v4_tts";
+  const LS_META  = "kid_vocab_v4_meta";
+
+  // ✅ 기본 단어(처음 접속한 기기에서도 자동으로 들어가게)
+  const DEFAULT_WORDS = [
+    {"en":"fun","ko":"재미있는","pron":"펀","weekly":true},
+    {"en":"bed","ko":"침대","pron":"베드","weekly":true},
+    {"en":"book","ko":"책","pron":"북","weekly":true},
+    {"en":"name","ko":"이름","pron":"네임","weekly":true},
+    {"en":"play","ko":"놀다","pron":"플레이","weekly":true},
+    {"en":"go","ko":"가다","pron":"고","weekly":true},
+
+    {"en":"school","ko":"학교","pron":"스쿨","weekly":true},
+    {"en":"like","ko":"좋아하다","pron":"라이크","weekly":true},
+    {"en":"read","ko":"읽다","pron":"리드","weekly":true},
+    {"en":"have","ko":"가지다/하다","pron":"해브","weekly":true},
+    {"en":"lesson","ko":"수업","pron":"레슨","weekly":true},
+    {"en":"together","ko":"함께","pron":"투게더","weekly":true},
+
+    {"en":"pizza","ko":"피자","pron":"피자","weekly":true},
+    {"en":"sit","ko":"앉다","pron":"싯","weekly":true},
+    {"en":"good","ko":"좋은","pron":"굿","weekly":true},
+    {"en":"class","ko":"반/수업","pron":"클래스","weekly":true},
+    {"en":"hair","ko":"머리카락","pron":"헤어","weekly":true},
+    {"en":"write","ko":"쓰다","pron":"라이트","weekly":true},
+
+    {"en":"time","ko":"시간","pron":"타임","weekly":true},
+    {"en":"soccer","ko":"축구","pron":"사커","weekly":true},
+    {"en":"can","ko":"할 수 있다","pron":"캔","weekly":true},
+    {"en":"look","ko":"보다","pron":"룩","weekly":true},
+    {"en":"please","ko":"제발/부탁해요","pron":"플리즈","weekly":true},
+    {"en":"world","ko":"세계","pron":"월드","weekly":true},
+
+    {"en":"hat","ko":"모자","pron":"햇","weekly":true},
+    {"en":"up","ko":"위로/올라가","pron":"업","weekly":true},
+    {"en":"old","ko":"늙은/오래된","pron":"올드","weekly":true},
+    {"en":"great","ko":"멋진/훌륭한","pron":"그레이트","weekly":true},
+    {"en":"song","ko":"노래","pron":"송","weekly":true},
+    {"en":"listen","ko":"듣다","pron":"리슨","weekly":true},
+
+    {"en":"day","ko":"날/하루","pron":"데이","weekly":true},
+    {"en":"want","ko":"원하다","pron":"원트","weekly":true},
+    {"en":"and","ko":"그리고","pron":"앤드","weekly":true},
+    {"en":"study","ko":"공부하다","pron":"스터디","weekly":true},
+    {"en":"summer","ko":"여름","pron":"서머","weekly":true},
+    {"en":"picture","ko":"사진/그림","pron":"픽처","weekly":true},
+
+    {"en":"bag","ko":"가방","pron":"백","weekly":true},
+    {"en":"dog","ko":"개","pron":"독","weekly":true},
+    {"en":"who","ko":"누구","pron":"후","weekly":true},
+    {"en":"week","ko":"주/일주일","pron":"위크","weekly":true},
+    {"en":"today","ko":"오늘","pron":"투데이","weekly":true},
+    {"en":"story","ko":"이야기","pron":"스토리","weekly":true},
+
+    {"en":"talk","ko":"말하다","pron":"톡","weekly":true},
+    {"en":"do","ko":"하다","pron":"두","weekly":true},
+    {"en":"check","ko":"확인하다","pron":"체크","weekly":true},
+    {"en":"happy","ko":"행복한","pron":"해피","weekly":true},
+    {"en":"tiger","ko":"호랑이","pron":"타이거","weekly":true},
+    {"en":"homework","ko":"숙제","pron":"홈워크","weekly":true},
+
+    {"en":"cap","ko":"모자(캡)","pron":"캡","weekly":true},
+    {"en":"jump","ko":"점프하다","pron":"점프","weekly":true},
+    {"en":"watch","ko":"보다/시계","pron":"워치","weekly":true},
+    {"en":"friend","ko":"친구","pron":"프렌드","weekly":true},
+    {"en":"music","ko":"음악","pron":"뮤직","weekly":true},
+    {"en":"in","ko":"~안에","pron":"인","weekly":true},
+
+    {"en":"room","ko":"방","pron":"룸","weekly":true},
+    {"en":"take","ko":"가지다/타다","pron":"테이크","weekly":true},
+    {"en":"turn","ko":"돌다/차례","pron":"턴","weekly":true},
+    {"en":"put","ko":"놓다","pron":"풋","weekly":true},
+    {"en":"science","ko":"과학","pron":"사이언스","weekly":true},
+    {"en":"breakfast","ko":"아침 식사","pron":"브렉퍼스트","weekly":true},
+
+    {"en":"big","ko":"큰","pron":"빅","weekly":true},
+    {"en":"box","ko":"상자","pron":"박스","weekly":true},
+    {"en":"about","ko":"~에 대해/대략","pron":"어바웃","weekly":true},
+    {"en":"movie","ko":"영화","pron":"무비","weekly":true},
+    {"en":"word","ko":"단어","pron":"워드","weekly":true},
+    {"en":"say","ko":"말하다","pron":"세이","weekly":true},
+
+    {"en":"birthday","ko":"생일","pron":"벌스데이","weekly":true},
+    {"en":"will","ko":"~할 것이다","pron":"윌","weekly":true},
+    {"en":"sing","ko":"노래하다","pron":"싱","weekly":true},
+    {"en":"bike","ko":"자전거","pron":"바이크","weekly":true},
+    {"en":"library","ko":"도서관","pron":"라이브러리","weekly":true},
+    {"en":"festival","ko":"축제","pron":"페스티벌","weekly":true},
+
+    {"en":"sad","ko":"슬픈","pron":"새드","weekly":true},
+    {"en":"run","ko":"달리다","pron":"런","weekly":true},
+    {"en":"ball","ko":"공","pron":"볼","weekly":true},
+    {"en":"on","ko":"~위에","pron":"온","weekly":true},
+    {"en":"many","ko":"많은","pron":"매니","weekly":true},
+    {"en":"color","ko":"색/색깔","pron":"컬러","weekly":true},
+
+    {"en":"come","ko":"오다","pron":"컴","weekly":true},
+    {"en":"angry","ko":"화난","pron":"앵그리","weekly":true},
+    {"en":"speak","ko":"말하다","pron":"스피크","weekly":true},
+    {"en":"water","ko":"물","pron":"워터","weekly":true},
+    {"en":"morning","ko":"아침","pron":"모닝","weekly":true},
+    {"en":"afternoon","ko":"오후","pron":"애프터눈","weekly":true},
+
+    {"en":"milk","ko":"우유","pron":"밀크","weekly":true},
+    {"en":"tea","ko":"차(티)","pron":"티","weekly":true},
+    {"en":"japan","ko":"일본","pron":"재팬","weekly":true},
+    {"en":"china","ko":"중국","pron":"차이나","weekly":true},
+    {"en":"or","ko":"또는","pron":"오어","weekly":true},
+    {"en":"from","ko":"~에서(부터)","pron":"프롬","weekly":true},
+
+    {"en":"pen","ko":"펜","pron":"펜","weekly":true},
+    {"en":"desk","ko":"책상","pron":"데스크","weekly":true},
+    {"en":"toy","ko":"장난감","pron":"토이","weekly":true},
+    {"en":"see","ko":"보다","pron":"씨","weekly":true},
+    {"en":"for","ko":"~을/를 위해","pron":"포","weekly":true},
+    {"en":"smell","ko":"냄새/냄새 맡다","pron":"스멜","weekly":true},
+    {"en":"under","ko":"~아래에","pron":"언더","weekly":true},
+    {"en":"swim","ko":"수영하다","pron":"스윔","weekly":true},
+    {"en":"make","ko":"만들다","pron":"메이크","weekly":true},
+    {"en":"ready","ko":"준비된","pron":"레디","weekly":true},
+    {"en":"weekend","ko":"주말","pron":"위켄드","weekly":true},
+    {"en":"tomorrow","ko":"내일","pron":"투모로우","weekly":true},
+    {"en":"nice","ko":"좋은/친절한","pron":"나이스","weekly":true},
+    {"en":"excellent","ko":"아주 훌륭한","pron":"엑설런트","weekly":true}
+  ];
+
+  /** @type {{id:string,en:string,ko:string,pron:string,weekly?:boolean, spell?:any}[]} */
+  let words = loadWords();
+  let meta = loadMeta();
+  let quiz = null;
+
+  // elements
+  const countPill = document.getElementById("countPill");
+  const modeSel = document.getElementById("mode");
+  const startBtn = document.getElementById("startBtn");
+
+  const w_en = document.getElementById("w_en");
+  const w_ko = document.getElementById("w_ko");
+  const w_pron = document.getElementById("w_pron");
+  const w_week = document.getElementById("w_week");
+  const addBtn = document.getElementById("addBtn");
+
+  const bulk = document.getElementById("bulk");
+  const bulkAddBtn = document.getElementById("bulkAddBtn");
+
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const clearWeeklyBtn = document.getElementById("clearWeeklyBtn");
+  const markAllWeeklyBtn = document.getElementById("markAllWeeklyBtn");
+
+  const gameCard = document.getElementById("gameCard");
+  const stageLabel = document.getElementById("stageLabel");
+  const promptEl = document.getElementById("prompt");
+  const hintEl = document.getElementById("hint");
+  const optionsEl = document.getElementById("options");
+
+  const chunkArea = document.getElementById("chunkArea");
+  const chunkSlots = document.getElementById("chunkSlots");
+  const builtWordPill = document.getElementById("builtWordPill");
+  const resetChunksBtn = document.getElementById("resetChunksBtn");
+  const checkChunksBtn = document.getElementById("checkChunksBtn");
+  const chunkFeedback = document.getElementById("chunkFeedback");
+
+  const feedback = document.getElementById("feedback");
+  const nextBtn = document.getElementById("nextBtn");
+  const skipBtn = document.getElementById("skipBtn");
+  const scorePill = document.getElementById("scorePill");
+  const idxPill = document.getElementById("idxPill");
+  const streakPill = document.getElementById("streakPill");
+  const bar = document.getElementById("bar");
+
+  const scopeSel = document.getElementById("scope");
+  const reviewBtn = document.getElementById("reviewBtn");
+
+  const speakBtn = document.getElementById("speakBtn");
+  const autoSpeak = document.getElementById("autoSpeak");
+  const ttsNote = document.getElementById("ttsNote");
+  const toggleGameOnly = document.getElementById("toggleGameOnly");
+
+  const starsPill = document.getElementById("starsPill");
+  const stickersPill = document.getElementById("stickersPill");
+  const rewardBtn = document.getElementById("rewardBtn");
+  const rewardHint = document.getElementById("rewardHint");
+
+  const tbody = document.getElementById("tbody");
+
+  // storage
+  function loadWords() {
+    try {
+      const raw = localStorage.getItem(LS_WORDS);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      return arr
+        .filter(x => x && typeof x.en === "string")
+        .map(x => ({
+          id: x.id || crypto.randomUUID(),
+          en: (x.en||"").trim(),
+          ko: (x.ko||"").trim(),
+          pron: (x.pron||"").trim(),
+          weekly: !!x.weekly,
+          spell: x.spell || null
+        }))
+        .filter(x => x.en.length > 0);
+    } catch { return []; }
+  }
+
+  function saveWords() {
+    localStorage.setItem(LS_WORDS, JSON.stringify(words));
+    renderCount(); renderList();
+  }
+
+  function loadMeta() {
+    try {
+      const raw = localStorage.getItem(LS_META);
+      if (!raw) return { stars: 0, stickers: 0, streak: 0, wrongIds: [] };
+      const x = JSON.parse(raw);
+      return {
+        stars: Number.isFinite(x.stars) ? x.stars : 0,
+        stickers: Number.isFinite(x.stickers) ? x.stickers : 0,
+        streak: Number.isFinite(x.streak) ? x.streak : 0,
+        wrongIds: Array.isArray(x.wrongIds) ? x.wrongIds : []
+      };
+    } catch { return { stars: 0, stickers: 0, streak: 0, wrongIds: [] }; }
+  }
+
+  function saveMeta() {
+    localStorage.setItem(LS_META, JSON.stringify(meta));
+    renderReward();
+  }
+
+  function loadTts() {
+    try {
+      const raw = localStorage.getItem(LS_TTS);
+      if (!raw) return { autoSpeak: true };
+      const x = JSON.parse(raw);
+      return { autoSpeak: !!x.autoSpeak };
+    } catch { return { autoSpeak: true }; }
+  }
+
+  function saveTts() {
+    localStorage.setItem(LS_TTS, JSON.stringify({ autoSpeak: autoSpeak.checked }));
+  }
+
+  function renderCount() { countPill.textContent = `단어 ${words.length}개`; }
+
+  function escapeHtml(s) {
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  }
+
+  function renderList() {
+    tbody.innerHTML = "";
+    for (const w of words) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="checkbox" class="chk" data-week="${w.id}" ${w.weekly ? "checked":""} /></td>
+        <td><input data-k="en" data-id="${w.id}" value="${escapeHtml(w.en)}" /></td>
+        <td><input data-k="ko" data-id="${w.id}" value="${escapeHtml(w.ko)}" /></td>
+        <td><input data-k="pron" data-id="${w.id}" value="${escapeHtml(w.pron)}" /></td>
+        <td class="right"><button class="danger" data-del="${w.id}">삭제</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    tbody.querySelectorAll("input[data-week]").forEach(chk => {
+      chk.addEventListener("change", (e) => {
+        const id = e.target.getAttribute("data-week");
+        const idx = words.findIndex(x => x.id === id);
+        if (idx >= 0) { words[idx].weekly = e.target.checked; saveWords(); }
+      });
+    });
+
+    tbody.querySelectorAll("input[data-id]").forEach(inp => {
+      inp.addEventListener("change", (e) => {
+        const id = e.target.getAttribute("data-id");
+        const k = e.target.getAttribute("data-k");
+        const val = e.target.value.trim();
+        const idx = words.findIndex(x => x.id === id);
+        if (idx >= 0) { words[idx][k] = val; saveWords(); }
+      });
+    });
+
+    tbody.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-del");
+        words = words.filter(x => x.id !== id);
+        meta.wrongIds = meta.wrongIds.filter(x => x !== id);
+        saveWords(); saveMeta();
+      });
+    });
+  }
+
+  function addWord(en, ko, pron, weekly) {
+    en = (en || "").trim();
+    ko = (ko || "").trim();
+    pron = (pron || "").trim();
+    if (!en) return;
+
+    const exists = words.find(w => w.en.toLowerCase() === en.toLowerCase());
+    if (exists) {
+      exists.ko = ko || exists.ko;
+      exists.pron = pron || exists.pron;
+      if (weekly !== undefined) exists.weekly = !!weekly;
+    } else {
+      words.unshift({ id: crypto.randomUUID(), en, ko, pron, weekly: !!weekly, spell: null });
+    }
+    saveWords();
+  }
+
+  function seedDefaultWordsIfEmpty() {
+    if (Array.isArray(words) && words.length > 0) return;
+    for (const x of DEFAULT_WORDS) {
+      addWord(x.en, x.ko || "", x.pron || "", x.weekly ?? true);
+    }
+  }
+
+  addBtn.addEventListener("click", () => {
+    addWord(w_en.value, w_ko.value, w_pron.value, w_week.checked);
+    w_en.value = ""; w_ko.value = ""; w_pron.value = ""; w_week.checked = false;
+    w_en.focus();
+  });
+
+  bulkAddBtn.addEventListener("click", () => {
+    const lines = bulk.value.split("\n").map(x => x.trim()).filter(Boolean);
+    for (const line of lines) {
+      const parts = (line.includes("|") ? line.split("|") : (line.includes(",") ? line.split(",") : [line]))
+        .map(x => (x||"").trim());
+      if (parts.length === 1) {
+        addWord(parts[0], "", "", true);
+      } else {
+        const en = parts[0] || "";
+        const ko = parts[1] || "";
+        const pron = parts[2] || "";
+        const weekly = (parts[3] || "").toLowerCase() === "week";
+        addWord(en, ko, pron, weekly);
+      }
+    }
+    bulk.value = "";
+  });
+
+  exportBtn.addEventListener("click", async () => {
+    const data = JSON.stringify(words, null, 2);
+    await navigator.clipboard.writeText(data).catch(()=>{});
+    alert("클립보드에 JSON으로 복사했습니다.");
+  });
+
+  importBtn.addEventListener("click", () => {
+    const txt = prompt("붙여넣을 JSON을 입력하세요 (기존 목록에 추가됩니다).");
+    if (!txt) return;
+    try {
+      const arr = JSON.parse(txt);
+      if (!Array.isArray(arr)) throw new Error();
+      for (const x of arr) addWord(x.en, x.ko, x.pron, x.weekly);
+      alert("가져오기 완료");
+    } catch {
+      alert("JSON 형식이 올바르지 않습니다.");
+    }
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (!confirm("정말 전체 삭제할까요? (보상/복습 기록도 초기화됩니다)")) return;
+    words = [];
+    meta = { stars: 0, stickers: 0, streak: 0, wrongIds: [] };
+    localStorage.removeItem(LS_WORDS);
+    localStorage.removeItem(LS_META);
+    saveWords(); saveMeta();
+  });
+
+  clearWeeklyBtn.addEventListener("click", () => {
+    words.forEach(w => w.weekly = false);
+    saveWords();
+  });
+
+  markAllWeeklyBtn.addEventListener("click", () => {
+    words.forEach(w => w.weekly = true);
+    saveWords();
+  });
+
+  function renderReward() {
+    starsPill.textContent = `⭐ ${meta.stars}`;
+    stickersPill.textContent = `🏅 ${meta.stickers}`;
+    const need = 10;
+    const can = Math.floor(meta.stars / need);
+    rewardBtn.disabled = can <= 0;
+    rewardHint.textContent = can > 0 ? `지금 보상 ${can}개 가능! (⭐${need}=🏅1)` : `⭐${need}개 모으면 🏅1개`;
+    streakPill.textContent = `연속 ${meta.streak}`;
+  }
+
+  rewardBtn.addEventListener("click", () => {
+    const need = 10;
+    const can = Math.floor(meta.stars / need);
+    if (can <= 0) return;
+    meta.stars -= need;
+    meta.stickers += 1;
+    saveMeta();
+    alert("보상 획득! 🏅 +1");
+  });
+
+  let bestEnVoice = null;
+  function pickEnglishVoice() {
+    const voices = speechSynthesis.getVoices();
+    bestEnVoice =
+      voices.find(v => /^en(-|_)/i.test(v.lang)) ||
+      voices.find(v => /English/i.test(v.name)) ||
+      null;
+  }
+  function updateTtsNote() {
+    const hasApi = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    if (!hasApi) {
+      ttsNote.textContent = "이 브라우저는 음성(TTS)을 지원하지 않습니다.";
+      speakBtn.disabled = true;
+      return;
+    }
+    ttsNote.textContent = "처음 한 번 🔊 버튼을 눌러두면(특히 iPhone), 이후 자동 읽기가 더 잘 됩니다.";
+  }
+  function speak(text) {
+    if (!("speechSynthesis" in window)) return;
+    try { speechSynthesis.cancel(); } catch {}
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    if (bestEnVoice) u.voice = bestEnVoice;
+    u.rate = 0.9;
+    speechSynthesis.speak(u);
+  }
+  if ("speechSynthesis" in window) {
+    pickEnglishVoice();
+    speechSynthesis.onvoiceschanged = () => pickEnglishVoice();
+  }
+
+  speakBtn.addEventListener("click", () => {
+    if (!quiz) return;
+    const w = quiz.order[quiz.i];
+    speak(w.en);
+  });
+  autoSpeak.addEventListener("change", saveTts);
+
+  toggleGameOnly.addEventListener("click", () => {
+    document.body.classList.toggle("gameOnly");
+    toggleGameOnly.textContent = document.body.classList.contains("gameOnly") ? "↩️ 돌아가기" : "📱 게임화면만";
+  });
+
+  function weeklyWords() { return words.filter(w => w.weekly); }
+  function currentPool() { return scopeSel.value === "weekly" ? weeklyWords() : words; }
+
+  function dedupeCase(arr) {
+    const out = [];
+    for (const x of arr) {
+      if (!out.map(o=>String(o).toLowerCase()).includes(String(x).toLowerCase())) out.push(x);
+    }
+    return out;
+  }
+
+  const CONF = {
+    "sch": ["sch","sk","ck"],
+    "sh": ["sh","s","ch"],
+    "ch": ["ch","sh","tch"],
+    "ck": ["ck","k","c"],
+    "ph": ["ph","f","p"],
+    "th": ["th","t","s"],
+    "wh": ["wh","w","h"],
+    "oo": ["oo","u","ou"],
+    "ee": ["ee","i","ea"],
+    "ea": ["ea","e","ee"],
+    "ai": ["ai","a","ay"],
+    "ay": ["ay","ai","a"],
+    "oa": ["oa","o","ow"],
+    "ow": ["ow","o","oa"],
+    "ou": ["ou","u","oo"],
+    "ar": ["ar","er","or"],
+    "er": ["er","ar","or"],
+    "or": ["or","er","ar"],
+    "ur": ["ur","er","or"],
+    "tion": ["tion","shun","cion"],
+    "ing": ["ing","in","ng"]
+  };
+
+  function chunkWord(en) {
+    const low = en.toLowerCase();
+    const chunks = [];
+    let i = 0;
+    const keys = Object.keys(CONF).sort((a,b)=>b.length-a.length);
+
+    while (i < low.length) {
+      let matched = null;
+      for (const k of keys) {
+        if (low.startsWith(k, i)) { matched = k; break; }
+      }
+      if (matched) {
+        const corr = en.slice(i, i + matched.length);
+        const options = dedupeCase([corr, ...CONF[matched]]).slice(0,3);
+        chunks.push({ correct: corr, options });
+        i += matched.length;
+      } else {
+        const corr = en[i];
+        const cLow = low[i];
+        let opts = [corr];
+
+        if (cLow === "c") opts = [corr, "k", "ck"];
+        else if (cLow === "k") opts = [corr, "c", "ck"];
+        else if (cLow === "s") opts = [corr, "sh", "ch"];
+        else if (cLow === "f") opts = [corr, "ph", "p"];
+        else if (cLow === "l") opts = [corr, "r", "ll"];
+        else if (cLow === "r") opts = [corr, "l", "rr"];
+        else if (cLow === "g") opts = [corr, "j", "k"];
+        else if (cLow === "j") opts = [corr, "g", "d"];
+        else if (cLow === "a") opts = [corr, "e", "o"];
+        else if (cLow === "e") opts = [corr, "i", "a"];
+        else if (cLow === "i") opts = [corr, "ee", "e"];
+        else if (cLow === "o") opts = [corr, "oa", "ow"];
+        else if (cLow === "u") opts = [corr, "oo", "ou"];
+        else opts = [corr, corr];
+
+        chunks.push({ correct: corr, options: dedupeCase(opts).slice(0,3) });
+        i += 1;
+      }
+    }
+    return chunks;
+  }
+
+  let chunkState = null;
+
+  function startChunkPuzzle(word) {
+    const spell = (word.spell && Array.isArray(word.spell) && word.spell.length)
+      ? word.spell
+      : chunkWord(word.en);
+
+    chunkState = { spell, picks: new Array(spell.length).fill(null) };
+    chunkFeedback.textContent = "";
+    renderChunkSlots();
+    updateBuiltWord();
+  }
+
+  function renderChunkSlots() {
+    chunkSlots.innerHTML = "";
+    chunkState.spell.forEach((part, idx) => {
+      const slot = document.createElement("div");
+      slot.className = "chunkCard";
+      slot.innerHTML = `
+        <div class="muted" style="margin-bottom:8px;">${idx+1}번째 조각</div>
+        <div class="row" style="gap:10px;"></div>
+      `;
+      const row = slot.querySelector(".row");
+      const opts = shuffle(part.options);
+
+      opts.forEach(opt => {
+        const b = document.createElement("button");
+        b.className = "secondary";
+        b.textContent = opt;
+        b.style.padding = "14px 12px";
+        b.style.fontSize = "18px";
+        b.addEventListener("click", () => {
+          chunkState.picks[idx] = opt;
+          renderChunkSlots();
+          updateBuiltWord();
+        });
+        if (chunkState.picks[idx] && String(chunkState.picks[idx]).toLowerCase() === String(opt).toLowerCase()) {
+          b.className = "";
+          b.style.background = "#ecfdf3";
+          b.style.borderColor = "#16a34a";
+        }
+        row.appendChild(b);
+      });
+
+      chunkSlots.appendChild(slot);
+    });
+  }
+
+  function updateBuiltWord() {
+    const built = chunkState.picks.map(x => x || "□").join("");
+    builtWordPill.textContent = `완성: ${built}`;
+  }
+
+  resetChunksBtn.addEventListener("click", () => {
+    if (!chunkState) return;
+    chunkState.picks.fill(null);
+    chunkFeedback.textContent = "";
+    renderChunkSlots();
+    updateBuiltWord();
+  });
+
+  checkChunksBtn.addEventListener("click", () => {
+    if (!quiz || !chunkState) return;
+    const w = quiz.order[quiz.i];
+
+    if (chunkState.picks.some(x => !x)) {
+      chunkFeedback.textContent = "아직 빈 칸이 있어요! □를 채워주세요.";
+      return;
+    }
+
+    const ok = chunkState.spell.every((part, i) =>
+      String(chunkState.picks[i]).toLowerCase() === String(part.correct).toLowerCase()
+    );
+
+    if (ok) {
+      chunkFeedback.textContent = "정답! ✅ (+1점, +⭐1)";
+      quiz.score += 1;
+      meta.stars += 1;
+      meta.streak += 1;
+      if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
+      saveMeta();
+      scorePill.textContent = `점수 ${quiz.score}`;
+      if (autoSpeak.checked) speak(w.en);
+      nextBtn.style.display = "inline-block";
+    } else {
+      chunkFeedback.textContent = `오답! 😅 정답은 "${w.en}" 입니다.`;
+      meta.streak = 0;
+      if (!meta.wrongIds.includes(w.id)) meta.wrongIds.push(w.id);
+      saveMeta();
+    }
+  });
+
+  function startQuiz(mode, {review=false}={}) {
+    const pool = review ? getReviewPool() : currentPool();
+    if (words.length < 4) { alert("전체 단어가 최소 4개 필요합니다."); return; }
+    if (!review && pool.length < 4 && scopeSel.value === "weekly") {
+      alert("이번 주 단어가 4개 미만입니다. (최소 4개 필요)\n이번 주 체크를 더 하시거나, 출제를 '누적(전체)'로 바꿔주세요.");
+      return;
+    }
+    if (review && pool.length === 0) { alert("최근 게임에서 틀린 단어가 없습니다! 👍"); return; }
+
+    const order = shuffle([...pool]).slice(0, Math.min(pool.length, 20));
+    quiz = { mode, order, i: 0, score: 0, isReview: review };
+
+    if (!review) {
+      meta.wrongIds = [];
+      saveMeta();
+    }
+
+    gameCard.style.display = "block";
+    nextBtn.style.display = "none";
+    feedback.textContent = "";
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    if (!quiz) return;
+    feedback.textContent = "";
+    nextBtn.style.display = "none";
+    optionsEl.innerHTML = "";
+    chunkArea.style.display = "none";
+
+    const total = quiz.order.length;
+    const idx = quiz.i + 1;
+    idxPill.textContent = `${idx} / ${total}`;
+    scorePill.textContent = `점수 ${quiz.score}`;
+    bar.style.width = `${Math.round((quiz.i / total) * 100)}%`;
+
+    const w = quiz.order[quiz.i];
+    const pool = makeChoices(w, 4);
+
+    if (quiz.mode === "meaning") {
+      stageLabel.textContent = quiz.isReview ? "복습: 뜻" : "1단계: 뜻";
+      promptEl.textContent = w.en;
+      hintEl.textContent = "뜻을 고르세요.";
+      pool.map(x => x.ko || "(뜻 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
+      return;
+    }
+
+    if (quiz.mode === "pron") {
+      stageLabel.textContent = quiz.isReview ? "복습: 발음(한글)" : "2단계: 발음(한글)";
+      promptEl.textContent = w.en;
+      hintEl.textContent = "발음(한글)을 고르세요.";
+      pool.map(x => x.pron || "(발음 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
+      return;
+    }
+
+    if (quiz.mode === "spelling") {
+      stageLabel.textContent = quiz.isReview ? "복습: 스펠링(조각)" : "3단계: 스펠링(조각)";
+      promptEl.textContent = w.ko || "(뜻 없음)";
+      hintEl.textContent = "조각을 순서대로 골라 단어를 완성하세요.";
+      chunkArea.style.display = "block";
+      startChunkPuzzle(w);
+      return;
+    }
+  }
+
+  function addOptionButton(label, isCorrect, w) {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.addEventListener("click", () => onPick(btn, isCorrect, w));
+    optionsEl.appendChild(btn);
+  }
+
+  function onPick(btn, isCorrect, w) {
+    [...optionsEl.children].forEach(b => b.disabled = true);
+
+    if (isCorrect) {
+      btn.classList.add("correct");
+      quiz.score += 1;
+      meta.streak += 1;
+      meta.stars += 1;
+      if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
+      feedback.textContent = (meta.streak % 5 === 0) ? `정답! 👍 연속 ${meta.streak} (보너스⭐+2!)` : "정답! 👍";
+      if (autoSpeak.checked) speak(w.en);
+    } else {
+      btn.classList.add("wrong");
+      feedback.textContent = `오답! 정답: ${w.en}`;
+      meta.streak = 0;
+      if (!meta.wrongIds.includes(w.id)) meta.wrongIds.push(w.id);
+    }
+
+    saveMeta();
+    nextBtn.style.display = "inline-block";
+  }
+
+  nextBtn.addEventListener("click", () => {
+    if (!quiz) return;
+    quiz.i += 1;
+    if (quiz.i >= quiz.order.length) {
+      bar.style.width = `100%`;
+      alert(`끝! 점수: ${quiz.score}\n틀린 단어: ${meta.wrongIds.length}개 (복습 버튼으로 가능)`);
+      quiz = null;
+      gameCard.style.display = "none";
+      return;
+    }
+    renderQuestion();
+  });
+
+  skipBtn.addEventListener("click", () => {
+    if (!quiz) return;
+    meta.streak = 0;
+    saveMeta();
+    quiz.i += 1;
+    if (quiz.i >= quiz.order.length) {
+      bar.style.width = `100%`;
+      alert("끝!");
+      quiz = null;
+      gameCard.style.display = "none";
+      return;
+    }
+    renderQuestion();
+  });
+
+  function getReviewPool() {
+    const wrongSet = new Set(meta.wrongIds);
+    return words.filter(w => wrongSet.has(w.id));
+  }
+
+  reviewBtn.addEventListener("click", () => startQuiz(modeSel.value, {review:true}));
+  startBtn.addEventListener("click", () => startQuiz(modeSel.value));
+
+  scopeSel.addEventListener("change", () => {
+    if (scopeSel.value === "weekly" && weeklyWords().length < 4) {
+      alert("이번 주 단어가 4개 미만입니다. (최소 4개 필요)\n이번 주 체크를 더 하시거나, 누적으로 바꿔주세요.");
+    }
+  });
+
+  function makeChoices(correct, n) {
+    const basePool = currentPool();
+    const others = basePool.filter(w => w.id !== correct.id);
+    const fallback = words.filter(w => w.id !== correct.id);
+    const src = (others.length >= n-1) ? others : fallback;
+    const picks = shuffle(src).slice(0, Math.max(0, n - 1));
+    return shuffle([correct, ...picks]);
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ✅ 시작 시: 단어가 비어있으면 기본 단어 자동 주입
+  seedDefaultWordsIfEmpty();
+
+  // init
+  renderCount();
+  renderList();
+  renderReward();
+  const tts = loadTts();
+  autoSpeak.checked = tts.autoSpeak;
+  updateTtsNote();
+})();
+</script>
+</body>
+</html>
