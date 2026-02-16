@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>단어 게임 v4 (주간/누적 + 보상 + 복습 + 음성 + 조각 스펠링)</title>
+  <title>단어 게임 v4 (모바일 최적 + 선택지 중앙)</title>
   <style>
     :root { --gap: 12px; }
     html, body { height: 100%; }
@@ -44,7 +44,7 @@
     .right { text-align:right; }
     .chk { width:18px; height:18px; vertical-align: middle; }
 
-    /* ✅ 게임화면만(풀스크린) */
+    /* ===== 게임화면만(풀스크린) ===== */
     body.gameOnly { overflow: hidden; }
     body.gameOnly header,
     body.gameOnly #adminCard,
@@ -56,7 +56,6 @@
       gap: 10px;
     }
 
-    /* ✅ 게임카드가 화면을 꽉 채우고, 내부만 촘촘하게 */
     body.gameOnly #gameCard {
       display:block !important;
       height: calc(100vh - 20px);
@@ -64,15 +63,25 @@
       padding: 10px;
     }
 
-    /* ✅ 게임화면만 모드에서는 전체가 한 화면에 들어오도록 “촘촘 모드” */
-    body.gameOnly .card { border-radius: 14px; }
+    /* 게임카드를 ‘위(정보) - 가운데(선택지) - 아래(조작)’로 고정 */
+    #gameLayout {
+      display: block;
+    }
+    body.gameOnly #gameLayout {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* 촘촘 모드 */
     body.gameOnly .big { font-size: 26px; }
     body.gameOnly .pill { font-size: 12px; padding: 5px 8px; }
     body.gameOnly button,
     body.gameOnly input,
     body.gameOnly select { padding: 10px 10px; border-radius: 10px; }
 
-    /* ✅ 선택지(뜻/발음)는 2열로 → 스크롤 최소화 */
+    /* 선택지는 2열로 (가운데) */
     body.gameOnly .options {
       grid-template-columns: 1fr 1fr;
       gap: 8px;
@@ -82,18 +91,23 @@
       padding: 12px 10px;
     }
 
-    /* ✅ 조각 선택 카드도 작게 */
+    /* 가운데 영역만 스크롤 허용(전체는 고정) */
+    body.gameOnly #gameMiddle {
+      flex: 1;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 4px;
+    }
+
+    /* 아래 조작 영역은 고정 */
+    body.gameOnly #gameBottom {
+      flex: 0 0 auto;
+    }
+
+    /* 조각 카드 */
     .chunkCard { border: 1px solid #e7e7ee; border-radius: 14px; padding: 12px; background: #fff; }
     body.gameOnly .chunkCard { padding: 10px; border-radius: 12px; }
     body.gameOnly .chunkCard button { font-size: 16px; padding: 12px 10px; }
-
-    /* ✅ 게임 카드 내부 요소가 화면을 넘기면 “선택지 영역만” 아주 약하게 스크롤 */
-    body.gameOnly #gameCard .options,
-    body.gameOnly #gameCard #chunkSlots {
-      max-height: 38vh;   /* 폰 화면에서 선택지가 길어도 여기만 살짝 스크롤 */
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-    }
 
     @media (max-width: 400px){
       body.gameOnly .big { font-size: 24px; }
@@ -106,8 +120,8 @@
 <header>
   <div class="row" style="max-width:980px;margin:0 auto;">
     <div style="flex:2;min-width:220px;">
-      <div style="font-weight:900;">단어 게임 v4</div>
-      <div class="muted">주간/누적 + 보상 + 틀린단어 복습 + 정답 음성 + 스펠링(조각 선택)</div>
+      <div style="font-weight:900;">단어 게임</div>
+      <div class="muted">주간/누적 + 보상 + 복습 + 음성 + 스펠링(조각)</div>
     </div>
     <div class="row" style="justify-content:flex-end; flex:1;">
       <span class="pill" id="countPill">단어 0개</span>
@@ -126,7 +140,7 @@
     <div class="row">
       <div style="flex:2;min-width:240px;">
         <div style="font-weight:900;">단어 관리</div>
-        <div class="muted">처음 접속 시 기본 단어가 자동으로 들어갑니다(폰 포함). 이후 추가/수정도 자동 저장됩니다.</div>
+        <div class="muted">처음 접속 시 기본 단어 자동 입력(폰 포함). 이후 추가/수정도 자동 저장됩니다.</div>
       </div>
       <div class="right" style="flex:1;">
         <button class="secondary" id="exportBtn">내보내기(JSON)</button>
@@ -170,13 +184,46 @@ book | 책 | 북"></textarea>
   </section>
 
   <section class="card" id="gameCard" style="display:none;">
-    <div class="row">
-      <div style="flex:2;">
-        <div class="muted" id="stageLabel">단계</div>
-        <div class="big" id="prompt">-</div>
-        <div class="muted" id="hint"></div>
+    <div id="gameLayout">
+      <!-- 위: 문제/상태 -->
+      <div id="gameTop">
+        <div class="row">
+          <div style="flex:2;">
+            <div class="muted" id="stageLabel">단계</div>
+            <div class="big" id="prompt">-</div>
+            <div class="muted" id="hint"></div>
+          </div>
 
-        <div class="row" style="margin-top:10px;">
+          <div style="flex:1; min-width:240px;">
+            <div class="progress"><div class="bar" id="bar"></div></div>
+            <div class="row" style="margin-top:10px;">
+              <span class="pill" id="scorePill">점수 0</span>
+              <span class="pill" id="idxPill">0 / 0</span>
+              <span class="pill" id="streakPill">연속 0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 가운데: 선택지(중앙 배치) -->
+      <div id="gameMiddle">
+        <div class="options" id="options"></div>
+
+        <div id="chunkArea" style="display:none; margin-top:12px;">
+          <div class="muted">조각을 순서대로 골라 단어를 완성하세요.</div>
+          <div id="chunkSlots" style="display:grid; gap:10px; margin-top:10px;"></div>
+          <div class="row" style="margin-top:12px;">
+            <span class="pill" id="builtWordPill">완성: </span>
+            <button class="secondary" id="resetChunksBtn">처음부터</button>
+            <button class="ghost" id="checkChunksBtn">정답 확인</button>
+          </div>
+          <div class="muted" id="chunkFeedback" style="margin-top:8px;"></div>
+        </div>
+      </div>
+
+      <!-- 아래: 조작 -->
+      <div id="gameBottom">
+        <div class="row" style="margin-top:2px;">
           <select id="scope">
             <option value="weekly">출제: 이번 주</option>
             <option value="all">출제: 누적(전체)</option>
@@ -195,40 +242,16 @@ book | 책 | 북"></textarea>
           <span class="pill" id="stickersPill">🏅 0</span>
           <button class="ghost" id="rewardBtn">보상 받기</button>
           <span class="muted" id="rewardHint"></span>
+          <button class="secondary" id="skipBtn">건너뛰기</button>
         </div>
 
         <div class="muted" id="ttsNote" style="margin-top:6px;"></div>
-      </div>
 
-      <div style="flex:1; min-width:240px;">
-        <div class="progress"><div class="bar" id="bar"></div></div>
         <div class="row" style="margin-top:10px;">
-          <span class="pill" id="scorePill">점수 0</span>
-          <span class="pill" id="idxPill">0 / 0</span>
-          <span class="pill" id="streakPill">연속 0</span>
-          <button class="secondary" id="skipBtn">건너뛰기</button>
+          <button id="nextBtn" class="ghost" style="display:none;">다음</button>
+          <span class="muted" id="feedback"></span>
         </div>
       </div>
-    </div>
-
-    <div style="margin-top:14px;">
-      <div class="options" id="options"></div>
-    </div>
-
-    <div id="chunkArea" style="display:none; margin-top:12px;">
-      <div class="muted">조각을 순서대로 골라 단어를 완성하세요.</div>
-      <div id="chunkSlots" style="display:grid; gap:10px; margin-top:10px;"></div>
-      <div class="row" style="margin-top:12px;">
-        <span class="pill" id="builtWordPill">완성: </span>
-        <button class="secondary" id="resetChunksBtn">처음부터</button>
-        <button class="ghost" id="checkChunksBtn">정답 확인</button>
-      </div>
-      <div class="muted" id="chunkFeedback" style="margin-top:8px;"></div>
-    </div>
-
-    <div class="row" style="margin-top:14px;">
-      <button id="nextBtn" class="ghost" style="display:none;">다음</button>
-      <span class="muted" id="feedback"></span>
     </div>
   </section>
 
@@ -256,6 +279,7 @@ book | 책 | 북"></textarea>
   const LS_TTS   = "kid_vocab_v4_tts";
   const LS_META  = "kid_vocab_v4_meta";
 
+  // ✅ 기본 단어(처음 접속한 기기에서도 자동)
   const DEFAULT_WORDS = [
     {"en":"fun","ko":"재미있는","pron":"펀","weekly":true},
     {"en":"bed","ko":"침대","pron":"베드","weekly":true},
@@ -368,6 +392,7 @@ book | 책 | 북"></textarea>
   let meta = loadMeta();
   let quiz = null;
 
+  // elements
   const countPill = document.getElementById("countPill");
   const modeSel = document.getElementById("mode");
   const startBtn = document.getElementById("startBtn");
@@ -423,6 +448,7 @@ book | 책 | 북"></textarea>
 
   const tbody = document.getElementById("tbody");
 
+  // storage
   function loadWords() {
     try {
       const raw = localStorage.getItem(LS_WORDS);
@@ -550,6 +576,7 @@ book | 책 | 북"></textarea>
     for (const x of DEFAULT_WORDS) addWord(x.en, x.ko || "", x.pron || "", x.weekly ?? true);
   }
 
+  // ====== 관리자 버튼 ======
   addBtn.addEventListener("click", () => {
     addWord(w_en.value, w_ko.value, w_pron.value, w_week.checked);
     w_en.value = ""; w_ko.value = ""; w_pron.value = ""; w_week.checked = false;
@@ -598,6 +625,7 @@ book | 책 | 북"></textarea>
   clearWeeklyBtn.addEventListener("click", () => { words.forEach(w => w.weekly = false); saveWords(); });
   markAllWeeklyBtn.addEventListener("click", () => { words.forEach(w => w.weekly = true); saveWords(); });
 
+  // ====== 보상 ======
   function renderReward() {
     starsPill.textContent = `⭐ ${meta.stars}`;
     stickersPill.textContent = `🏅 ${meta.stickers}`;
@@ -607,13 +635,17 @@ book | 책 | 북"></textarea>
     rewardHint.textContent = can > 0 ? `지금 보상 ${can}개 가능! (⭐${need}=🏅1)` : `⭐${need}개 모으면 🏅1개`;
     streakPill.textContent = `연속 ${meta.streak}`;
   }
+
   rewardBtn.addEventListener("click", () => {
     const need = 10;
     if (Math.floor(meta.stars / need) <= 0) return;
-    meta.stars -= need; meta.stickers += 1; saveMeta();
+    meta.stars -= need;
+    meta.stickers += 1;
+    saveMeta();
     alert("보상 획득! 🏅 +1");
   });
 
+  // ====== TTS ======
   let bestEnVoice = null;
   function pickEnglishVoice() {
     const voices = speechSynthesis.getVoices();
@@ -640,14 +672,24 @@ book | 책 | 북"></textarea>
   speakBtn.addEventListener("click", () => { if (!quiz) return; speak(quiz.order[quiz.i].en); });
   autoSpeak.addEventListener("change", saveTts);
 
-  toggleGameOnly.addEventListener("click", () => {
-    document.body.classList.toggle("gameOnly");
+  // ====== 게임화면만 토글 ======
+  function setGameOnly(on) {
+    document.body.classList.toggle("gameOnly", !!on);
     toggleGameOnly.textContent = document.body.classList.contains("gameOnly") ? "↩️ 돌아가기" : "📱 게임화면만";
-  });
+  }
+  toggleGameOnly.addEventListener("click", () => setGameOnly(!document.body.classList.contains("gameOnly")));
 
+  // ✅ 폰에서는 자동으로 게임화면만 ON (원하면 버튼으로 해제 가능)
+  function autoGameOnlyOnMobile() {
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+    if (isMobile) setGameOnly(true);
+  }
+
+  // ====== 출제 풀 ======
   function weeklyWords(){ return words.filter(w=>w.weekly); }
   function currentPool(){ return scopeSel.value==="weekly" ? weeklyWords() : words; }
 
+  // ====== 스펠링 조각 ======
   function dedupeCase(arr) {
     const out = [];
     for (const x of arr) if (!out.map(o=>String(o).toLowerCase()).includes(String(x).toLowerCase())) out.push(x);
@@ -778,6 +820,7 @@ book | 책 | 북"></textarea>
     }
   });
 
+  // ====== 퀴즈 ======
   function startQuiz(mode, {review=false}={}) {
     const pool = review ? getReviewPool() : currentPool();
     if (words.length < 4) { alert("전체 단어가 최소 4개 필요합니다."); return; }
@@ -847,7 +890,6 @@ book | 책 | 북"></textarea>
 
   function onPick(btn, isCorrect, w) {
     [...optionsEl.children].forEach(b => b.disabled = true);
-
     if (isCorrect) {
       btn.classList.add("correct");
       quiz.score += 1;
@@ -862,7 +904,6 @@ book | 책 | 북"></textarea>
       meta.streak = 0;
       if (!meta.wrongIds.includes(w.id)) meta.wrongIds.push(w.id);
     }
-
     saveMeta();
     nextBtn.style.display = "inline-block";
   }
@@ -927,14 +968,18 @@ book | 책 | 북"></textarea>
     return a;
   }
 
+  // ====== 시작 ======
   seedDefaultWordsIfEmpty();
-
   renderCount();
   renderList();
   renderReward();
+
   const tts = loadTts();
   autoSpeak.checked = tts.autoSpeak;
   updateTtsNote();
+
+  // ✅ 폰 자동 게임화면만
+  autoGameOnlyOnMobile();
 })();
 </script>
 </body>
