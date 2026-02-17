@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>단어 게임 v5 (결과/오답재도전 + 스펠링 3조각)</title>
+  <title>단어 게임 v5.2 (결과/오답재도전 + 20문항 고정 + 스펠링 3조각)</title>
   <style>
     :root { --gap: 12px; }
     html, body { height: 100%; }
@@ -49,6 +49,10 @@
     body.gameOnly main { height: 100vh; padding: 8px; gap: 8px; }
     body.gameOnly #gameCard { display:block !important; height: calc(100vh - 16px); overflow: hidden; padding: 8px; border-radius: 14px; }
 
+    /* ✅ 하단 내비게이션 바(안전영역) 가림 방지 */
+    body.gameOnly #gameCard { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    body.gameOnly #gameBottom { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+
     body.gameOnly #gameLayout { height: 100%; display: flex; flex-direction: column; gap: 8px; }
 
     body.gameOnly .big { font-size: 24px; line-height: 1.08; }
@@ -61,9 +65,9 @@
 
     body.gameOnly #gameTop { flex: 0 0 auto; }
     body.gameOnly #hint { display:none; } /* 공간 절약 */
+    body.gameOnly #ttsNote { display:none; } /* 안내 숨김 */
 
     body.gameOnly #gameMiddle { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-
     body.gameOnly .options { grid-template-columns: 1fr 1fr; gap: 7px; }
     body.gameOnly .options button { font-size: 16px; padding: 11px 10px; }
 
@@ -72,7 +76,6 @@
 
     body.gameOnly #gameBottom { flex: 0 0 auto; }
     body.gameOnly #gameBottom .row { gap: 6px; }
-    body.gameOnly #ttsNote { display:none; } /* 안내 숨김 */
 
     body.gameOnly .btnSmall { padding: 6px 8px !important; font-size: 12px !important; border-radius: 10px !important; }
     body.gameOnly .btnBig { padding: 10px 12px !important; font-size: 15px !important; font-weight: 800; }
@@ -87,10 +90,6 @@
     #resultPanel { display:none; }
     #resultPanel .big { font-size: 28px; }
     body.gameOnly #resultPanel .big { font-size: 22px; }
-    body.gameOnly #gameCard { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-body.gameOnly #gameBottom { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
-body.gameOnly #gameCard { padding-bottom: calc(8px + env(safe-area-inset-bottom)); margin-bottom: env(safe-area-inset-bottom); }
-
   </style>
 </head>
 
@@ -98,8 +97,8 @@ body.gameOnly #gameCard { padding-bottom: calc(8px + env(safe-area-inset-bottom)
 <header>
   <div class="row" style="max-width:980px;margin:0 auto;">
     <div style="flex:2;min-width:220px;">
-      <div style="font-weight:900;">단어 게임 v5</div>
-      <div class="muted">결과 화면 + 오답 재도전 + 스펠링 3조각</div>
+      <div style="font-weight:900;">단어 게임 v5.2</div>
+      <div class="muted">결과/오답재도전 + 20문항 고정 + 스펠링 3조각</div>
     </div>
     <div class="row" style="justify-content:flex-end; flex:1;">
       <span class="pill" id="countPill">단어 0개</span>
@@ -268,29 +267,25 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 
 <script>
 (() => {
-  const LS_WORDS = "kid_vocab_v5_words";
-  const LS_TTS   = "kid_vocab_v5_tts";
-  const LS_META  = "kid_vocab_v5_meta";
+  // ✅ 단어 저장 키는 "기존 것들"을 자동으로 끌어오기 위해 새 키를 사용하되, 로딩 시 마이그레이션
+  const LS_WORDS = "kid_vocab_v52_words";
+  const LS_TTS   = "kid_vocab_v52_tts";
+  const LS_META  = "kid_vocab_v52_meta";
 
-  // 기본 단어(원하시면 여기 확장)
+  // 아주 최소 기본값(아무 데이터도 없을 때만 들어감)
   const DEFAULT_WORDS = [
     {"en":"fun","ko":"재미있는","pron":"펀","weekly":true},
-    {"en":"bed","ko":"침대","pron":"베드","weekly":true},
-    {"en":"book","ko":"책","pron":"북","weekly":true},
-    {"en":"name","ko":"이름","pron":"네임","weekly":true},
-    {"en":"play","ko":"놀다","pron":"플레이","weekly":true},
-    {"en":"go","ko":"가다","pron":"고","weekly":true},
     {"en":"school","ko":"학교","pron":"스쿨","weekly":true},
-    {"en":"excellent","ko":"아주 훌륭한","pron":"엑설런트","weekly":true}
+    {"en":"excellent","ko":"아주 훌륭한","pron":"엑설런트","weekly":true},
+    {"en":"book","ko":"책","pron":"북","weekly":true}
   ];
 
   /** @type {{id:string,en:string,ko:string,pron:string,weekly?:boolean, spell?:any}[]} */
   let words = loadWords();
   let meta = loadMeta();
 
-  // quiz state
-  let quiz = null; // {mode, order, i, score, isReview, wrongIdsLocal:Set<string>}
-  let chunkState = null; // {spell, picks}
+  let quiz = null;      // {mode, order, i, score, isReview, wrongIdsLocal:Set<string>}
+  let chunkState = null;// {spell, picks, optOrder}
 
   // elements
   const countPill = document.getElementById("countPill");
@@ -362,8 +357,31 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 
   const tbody = document.getElementById("tbody");
 
+  // ---------- migration ----------
+  function migrateWordsIfNeeded() {
+    // 우선순위: 가장 최근/많이 쓰던 키들을 순서대로 확인
+    const candidates = [
+      LS_WORDS,
+      "kid_vocab_v4_words",
+      "kid_vocab_v3_words",
+      "kid_vocab_v2",
+      "kid_vocab_v5_words",
+      "kid_vocab_v4_words", // 중복 괜찮음
+    ];
+    if (localStorage.getItem(LS_WORDS)) return;
+
+    for (const key of candidates) {
+      const raw = localStorage.getItem(key);
+      if (raw && raw.trim().startsWith("[")) {
+        localStorage.setItem(LS_WORDS, raw);
+        return;
+      }
+    }
+  }
+
   // ---------- storage ----------
   function loadWords() {
+    migrateWordsIfNeeded();
     try {
       const raw = localStorage.getItem(LS_WORDS);
       if (!raw) return [];
@@ -562,8 +580,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   function weeklyWords(){ return words.filter(w=>w.weekly); }
   function currentPool(){ return scopeSel.value==="weekly" ? weeklyWords() : words; }
 
-  // ---------- spelling: 최대 3조각 ----------
-  // 자주 쓰는 조각(우선 매칭)
+  // ---------- spelling: 최대 3조각 & 후보 위치 고정 ----------
   const CONF = {
     "sch": ["sch","sk","ck"],
     "sh": ["sh","s","ch"],
@@ -595,7 +612,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   }
 
   function mutateChunk(chunk) {
-    // 너무 복잡하게 가지 않고, “헷갈릴 법한 대체” 2개 생성
     const low = chunk.toLowerCase();
     const rules = [
       [/c/g, "k"], [/k/g, "c"],
@@ -615,9 +631,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
       }
       if (variants.length >= 4) break;
     }
-    const out = dedupeCase([chunk, ...variants]).slice(0, 3);
-    // 대문자 유지보다는 소문자로 통일(아이 입력이 아니라 버튼 선택이므로 OK)
-    return out;
+    return dedupeCase([chunk, ...variants]).slice(0, 3);
   }
 
   function initialChunks(en) {
@@ -646,19 +660,14 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   }
 
   function mergeToMax3(chunks) {
-    // chunks가 3개 이하이면 그대로
     if (chunks.length <= 3) return chunks;
 
-    // 인접한 것끼리 합쳐서 3개로 줄이기:
-    // 가장 짧은 조각부터 옆과 합치기 반복(아이 난이도 완화)
-    let parts = chunks.map(c => ({ correct:c.correct, options:null }));
+    let parts = chunks.map(c => ({ correct:c.correct }));
     while (parts.length > 3) {
-      // 가장 짧은 조각 찾기
       let minIdx = 0;
       for (let i=1;i<parts.length;i++) {
         if (parts[i].correct.length < parts[minIdx].correct.length) minIdx = i;
       }
-      // 합칠 대상 선택(왼쪽 우선, 없으면 오른쪽)
       const leftIdx = minIdx - 1;
       const rightIdx = minIdx + 1;
 
@@ -672,28 +681,25 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
         break;
       }
     }
-
-    // options 재생성
     return parts.map(p => ({ correct: p.correct, options: mutateChunk(p.correct) }));
   }
 
   function buildSpellParts(en) {
-    const chunks = initialChunks(en);
-    // 너무 잘게 쪼개지는 단어는 3개로 압축
-    const max3 = mergeToMax3(chunks);
-
-    // 그래도 1~2개가 되는 아주 짧은 단어는 그대로(문제 없음)
-    return max3;
+    return mergeToMax3(initialChunks(en));
   }
 
   function startChunkPuzzle(word) {
     const spell = (word.spell && Array.isArray(word.spell) && word.spell.length)
-      ? mergeToMax3(word.spell) // 사용자가 커스텀 넣어도 3개 제한
+      ? mergeToMax3(word.spell)
       : buildSpellParts(word.en);
 
-    chunkState = { spell, picks: new Array(spell.length).fill(null) };
+    // ✅ 후보 순서를 처음 1회만 섞어서 고정(optOrder)
+    const optOrder = spell.map(p => shuffle([...p.options]));
+
+    chunkState = { spell, picks: new Array(spell.length).fill(null), optOrder };
     chunkFeedback.textContent = "";
-    renderChunkSlots(); updateBuiltWord();
+    renderChunkSlots();
+    updateBuiltWord();
   }
 
   function renderChunkSlots() {
@@ -704,14 +710,18 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
       slot.innerHTML = `<div class="muted" style="margin-bottom:6px;">${idx+1}번째</div><div class="row" style="gap:6px;"></div>`;
       const row = slot.querySelector(".row");
 
-      shuffle(part.options).forEach(opt => {
+      // ✅ 고정된 순서 사용
+      chunkState.optOrder[idx].forEach(opt => {
         const b = document.createElement("button");
         b.className = "secondary btnSmall";
         b.textContent = opt;
         b.addEventListener("click", () => {
           chunkState.picks[idx] = opt;
-          renderChunkSlots(); updateBuiltWord();
+          // 재렌더해도 optOrder는 고정이므로 위치가 안 바뀜
+          renderChunkSlots();
+          updateBuiltWord();
         });
+
         if (chunkState.picks[idx] && String(chunkState.picks[idx]).toLowerCase() === String(opt).toLowerCase()) {
           b.className = "btnSmall";
           b.style.background = "#ecfdf3";
@@ -733,7 +743,8 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     if (!chunkState) return;
     chunkState.picks.fill(null);
     chunkFeedback.textContent = "";
-    renderChunkSlots(); updateBuiltWord();
+    renderChunkSlots();
+    updateBuiltWord();
   });
 
   checkChunksBtn.addEventListener("click", () => {
@@ -777,18 +788,21 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 
   function startQuiz(mode, {review=false, poolOverride=null}={}) {
     const pool = poolOverride ? poolOverride : (review ? getReviewPoolFromMeta() : currentPool());
-
     if (words.length < 4) { alert("전체 단어가 최소 4개 필요합니다."); return; }
-    if (!poolOverride && !review && pool.length < 4 && scopeSel.value === "weekly") {
-      alert("이번 주 단어가 4개 미만입니다. (최소 4개 필요)\n이번 주 체크를 더 하시거나, 누적으로 바꿔주세요.");
-      return;
-    }
-    if (pool.length === 0) { alert("풀 단어가 없습니다."); return; }
+    if (!pool || pool.length === 0) { alert("출제할 단어가 없습니다."); return; }
 
-    const order = shuffle([...pool]).slice(0, Math.min(pool.length, 20));
+    // ✅ 문항 수는 항상 20개(부족하면 중복 출제)
+    const MAX_Q = 20;
+    let order = [];
+    while (order.length < MAX_Q) {
+      order = order.concat(shuffle([...pool]));
+      if (order.length > MAX_Q) order = order.slice(0, MAX_Q);
+      // pool이 1개여도 while 탈출되도록 안전장치(사실상 위 로직으로 충분)
+      if (pool.length === 0) break;
+    }
+
     quiz = { mode, order, i: 0, score: 0, isReview: review, wrongIdsLocal: new Set() };
 
-    // 시작 시 화면/상태 정리
     gameCard.style.display = "block";
     nextBtn.style.display = "none";
     feedbackEl.textContent = "";
@@ -870,7 +884,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   }
 
   function finishQuiz() {
-    // 이번 판 오답을 meta에 합치되, “최근 오답”처럼 쓰기 위해 meta.wrongIds를 교체
+    // 이번 판 오답을 meta에 반영(오답 재도전용)
     meta.wrongIds = Array.from(quiz.wrongIdsLocal);
     saveMeta();
 
@@ -882,8 +896,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     resultWrongPill.textContent = `오답 ${wrongCount}`;
     resultStarsPill.textContent = `⭐ ${meta.stars}`;
     resultStickersPill.textContent = `🏅 ${meta.stickers}`;
-
-    // 오답이 없으면 오답버튼 비활성
     retryWrongBtn.disabled = wrongCount === 0;
 
     showResultPanel();
@@ -925,7 +937,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   });
 
   retryAllBtn.addEventListener("click", () => {
-    // 같은 모드/범위로 다시
     startQuiz(modeSel.value, {review:false});
   });
 
@@ -936,6 +947,9 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   });
 
   // ---------- choices ----------
+  function weeklyWords(){ return words.filter(w=>w.weekly); }
+  function currentPool(){ return scopeSel.value==="weekly" ? weeklyWords() : words; }
+
   function makeChoices(correct, n) {
     const basePool = currentPool();
     const others = basePool.filter(w => w.id !== correct.id);
@@ -1006,6 +1020,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   // ---------- start ----------
   startBtn.addEventListener("click", () => startQuiz(modeSel.value));
 
+  // 초기화
   seedDefaultWordsIfEmpty();
   renderCount();
   renderList();
@@ -1020,5 +1035,3 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 </script>
 </body>
 </html>
-
-
