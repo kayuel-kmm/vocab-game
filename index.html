@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>단어 게임 v5.2 (결과/오답재도전 + 20문항 고정 + 스펠링 3조각)</title>
+  <title>단어 게임 v5.4 (툴바 가림 최소화 + 2번 발음)</title>
   <style>
     :root { --gap: 12px; }
     html, body { height: 100%; }
@@ -50,8 +50,8 @@
     body.gameOnly #gameCard { display:block !important; height: calc(100vh - 16px); overflow: hidden; padding: 8px; border-radius: 14px; }
 
     /* ✅ 하단 내비게이션 바(안전영역) 가림 방지 */
-    body.gameOnly #gameCard { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-    body.gameOnly #gameBottom { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+    body.gameOnly #gameCard { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+    body.gameOnly #gameBottom { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 
     body.gameOnly #gameLayout { height: 100%; display: flex; flex-direction: column; gap: 8px; }
 
@@ -64,8 +64,8 @@
     body.gameOnly #statusRow .pill { white-space: nowrap; flex: 0 0 auto; }
 
     body.gameOnly #gameTop { flex: 0 0 auto; }
-    body.gameOnly #hint { display:none; } /* 공간 절약 */
-    body.gameOnly #ttsNote { display:none; } /* 안내 숨김 */
+    body.gameOnly #hint { display:none; }
+    body.gameOnly #ttsNote { display:none; }
 
     body.gameOnly #gameMiddle { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
     body.gameOnly .options { grid-template-columns: 1fr 1fr; gap: 7px; }
@@ -80,11 +80,14 @@
     body.gameOnly .btnSmall { padding: 6px 8px !important; font-size: 12px !important; border-radius: 10px !important; }
     body.gameOnly .btnBig { padding: 10px 12px !important; font-size: 15px !important; font-weight: 800; }
 
-    @media (max-width: 380px){
-      body.gameOnly .big { font-size: 22px; }
-      body.gameOnly .options button { font-size: 15px; padding: 10px 9px; }
-      body.gameOnly .btnBig { font-size: 14px !important; }
-    }
+    /* ✅ 단어 옆 스피커 버튼 */
+    .promptRow { display:flex; align-items:center; gap: 10px; }
+    .promptRow .big { flex: 1; }
+    .promptSpeak { flex: 0 0 auto; padding: 10px 12px; border-radius: 12px; }
+    body.gameOnly .promptSpeak { padding: 8px 10px; border-radius: 10px; }
+
+    /* ✅ '다음' 버튼 줄을 아래툴바에서 더 멀리(위로) */
+    body.gameOnly #nextRow { margin-top: 6px; }
 
     /* 결과 화면 */
     #resultPanel { display:none; }
@@ -97,8 +100,8 @@
 <header>
   <div class="row" style="max-width:980px;margin:0 auto;">
     <div style="flex:2;min-width:220px;">
-      <div style="font-weight:900;">단어 게임 v5.2</div>
-      <div class="muted">결과/오답재도전 + 20문항 고정 + 스펠링 3조각</div>
+      <div style="font-weight:900;">단어 게임 v5.4</div>
+      <div class="muted">툴바 가림 최소화 + 2번 발음 + 결과/오답재도전 + 20문항 + 3조각</div>
     </div>
     <div class="row" style="justify-content:flex-end; flex:1;">
       <span class="pill" id="countPill">단어 0개</span>
@@ -113,7 +116,6 @@
 </header>
 
 <main>
-  <!-- 관리자 -->
   <section class="card" id="adminCard">
     <div class="row">
       <div style="flex:2;min-width:240px;">
@@ -140,12 +142,7 @@
 
     <details style="margin-top:12px;">
       <summary class="muted">대량 입력(간단): 영어만 / 또는 영어|뜻|발음|week</summary>
-      <textarea id="bulk" placeholder="예)
-excellent
-school
-
-또는
-excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
+      <textarea id="bulk"></textarea>
       <div class="row" style="margin-top:8px;">
         <button class="secondary" id="bulkAddBtn">대량 추가</button>
         <span class="muted">영어만 넣으면 뜻/발음은 빈칸으로 들어갑니다.</span>
@@ -159,14 +156,17 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     </div>
   </section>
 
-  <!-- 게임 -->
   <section class="card" id="gameCard" style="display:none;">
     <div id="gameLayout">
 
-      <!-- 위: 문제 + 상태 -->
       <div id="gameTop">
         <div class="muted" id="stageLabel">단계</div>
-        <div class="big" id="prompt">-</div>
+
+        <div class="promptRow">
+          <div class="big" id="prompt">-</div>
+          <button class="secondary promptSpeak" id="promptSpeakBtn" title="발음 듣기">🔊</button>
+        </div>
+
         <div class="muted" id="hint"> </div>
 
         <div class="progress" style="margin-top:6px;"><div class="bar" id="bar"></div></div>
@@ -179,7 +179,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
         </div>
       </div>
 
-      <!-- 가운데: 문제/선택지 또는 결과 -->
       <div id="gameMiddle">
         <div id="quizPanel">
           <div class="options" id="options"></div>
@@ -217,7 +216,13 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
         </div>
       </div>
 
-      <!-- 아래: 버튼 -->
+      <!-- ✅ '다음' 줄을 위로 올리기 위해: nextRow를 gameBottom 위쪽에 배치 -->
+      <div id="nextRow" class="row">
+        <button class="secondary btnBig" id="skipBtn">건너뛰기</button>
+        <button class="ghost btnBig" id="nextBtn" style="display:none;">다음</button>
+        <span class="muted" id="rewardHint" style="flex:1; min-width: 160px;"></span>
+      </div>
+
       <div id="gameBottom">
         <div class="row">
           <select class="btnSmall" id="scope">
@@ -234,19 +239,12 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
           <button class="ghost btnSmall" id="rewardBtn">보상</button>
         </div>
 
-        <div class="row" style="margin-top:6px;">
-          <button class="secondary btnBig" id="skipBtn">건너뛰기</button>
-          <button class="ghost btnBig" id="nextBtn" style="display:none;">다음</button>
-          <span class="muted" id="rewardHint" style="flex:1; min-width: 160px;"></span>
-        </div>
-
         <div class="muted" id="ttsNote" style="margin-top:4px;"></div>
         <div class="muted" id="feedback" style="margin-top:4px;"></div>
       </div>
     </div>
   </section>
 
-  <!-- 목록 -->
   <section class="card" id="listCard">
     <div class="row">
       <div style="flex:2;">
@@ -267,12 +265,10 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 
 <script>
 (() => {
-  // ✅ 단어 저장 키는 "기존 것들"을 자동으로 끌어오기 위해 새 키를 사용하되, 로딩 시 마이그레이션
-  const LS_WORDS = "kid_vocab_v52_words";
-  const LS_TTS   = "kid_vocab_v52_tts";
-  const LS_META  = "kid_vocab_v52_meta";
+  const LS_WORDS = "kid_vocab_v54_words";
+  const LS_TTS   = "kid_vocab_v54_tts";
+  const LS_META  = "kid_vocab_v54_meta";
 
-  // 아주 최소 기본값(아무 데이터도 없을 때만 들어감)
   const DEFAULT_WORDS = [
     {"en":"fun","ko":"재미있는","pron":"펀","weekly":true},
     {"en":"school","ko":"학교","pron":"스쿨","weekly":true},
@@ -280,12 +276,12 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     {"en":"book","ko":"책","pron":"북","weekly":true}
   ];
 
-  /** @type {{id:string,en:string,ko:string,pron:string,weekly?:boolean, spell?:any}[]} */
   let words = loadWords();
   let meta = loadMeta();
 
-  let quiz = null;      // {mode, order, i, score, isReview, wrongIdsLocal:Set<string>}
-  let chunkState = null;// {spell, picks, optOrder}
+  let quiz = null;
+  let chunkState = null;
+  let currentWord = null;
 
   // elements
   const countPill = document.getElementById("countPill");
@@ -312,6 +308,8 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   const promptEl = document.getElementById("prompt");
   const hintEl = document.getElementById("hint");
   const optionsEl = document.getElementById("options");
+
+  const promptSpeakBtn = document.getElementById("promptSpeakBtn");
 
   const quizPanel = document.getElementById("quizPanel");
   const resultPanel = document.getElementById("resultPanel");
@@ -359,27 +357,22 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 
   // ---------- migration ----------
   function migrateWordsIfNeeded() {
-    // 우선순위: 가장 최근/많이 쓰던 키들을 순서대로 확인
     const candidates = [
       LS_WORDS,
+      "kid_vocab_v53_words",
+      "kid_vocab_v52_words",
       "kid_vocab_v4_words",
       "kid_vocab_v3_words",
       "kid_vocab_v2",
       "kid_vocab_v5_words",
-      "kid_vocab_v4_words", // 중복 괜찮음
     ];
     if (localStorage.getItem(LS_WORDS)) return;
-
     for (const key of candidates) {
       const raw = localStorage.getItem(key);
-      if (raw && raw.trim().startsWith("[")) {
-        localStorage.setItem(LS_WORDS, raw);
-        return;
-      }
+      if (raw && raw.trim().startsWith("[")) { localStorage.setItem(LS_WORDS, raw); return; }
     }
   }
 
-  // ---------- storage ----------
   function loadWords() {
     migrateWordsIfNeeded();
     try {
@@ -387,8 +380,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
       if (!raw) return [];
       const arr = JSON.parse(raw);
       if (!Array.isArray(arr)) return [];
-      return arr
-        .filter(x => x && typeof x.en === "string")
+      return arr.filter(x => x && typeof x.en === "string")
         .map(x => ({
           id: x.id || crypto.randomUUID(),
           en: (x.en||"").trim(),
@@ -438,12 +430,9 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     localStorage.setItem(LS_TTS, JSON.stringify({ autoSpeak: autoSpeak.checked }));
   }
 
-  // ---------- UI render ----------
+  // ---------- UI ----------
   function renderCount() { countPill.textContent = `단어 ${words.length}개`; }
-
-  function escapeHtml(s) {
-    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
-  }
+  function escapeHtml(s) { return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;"); }
 
   function renderList() {
     tbody.innerHTML = "";
@@ -454,45 +443,32 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
         <td><input data-k="en" data-id="${w.id}" value="${escapeHtml(w.en)}" /></td>
         <td><input data-k="ko" data-id="${w.id}" value="${escapeHtml(w.ko)}" /></td>
         <td><input data-k="pron" data-id="${w.id}" value="${escapeHtml(w.pron)}" /></td>
-        <td class="right"><button class="danger" data-del="${w.id}">삭제</button></td>
-      `;
+        <td class="right"><button class="danger" data-del="${w.id}">삭제</button></td>`;
       tbody.appendChild(tr);
     }
-
-    tbody.querySelectorAll("input[data-week]").forEach(chk => {
-      chk.addEventListener("change", (e) => {
-        const id = e.target.getAttribute("data-week");
-        const idx = words.findIndex(x => x.id === id);
-        if (idx >= 0) { words[idx].weekly = e.target.checked; saveWords(); }
-      });
-    });
-
-    tbody.querySelectorAll("input[data-id]").forEach(inp => {
-      inp.addEventListener("change", (e) => {
-        const id = e.target.getAttribute("data-id");
-        const k = e.target.getAttribute("data-k");
-        const val = e.target.value.trim();
-        const idx = words.findIndex(x => x.id === id);
-        if (idx >= 0) { words[idx][k] = val; saveWords(); }
-      });
-    });
-
-    tbody.querySelectorAll("button[data-del]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-del");
-        words = words.filter(x => x.id !== id);
-        meta.wrongIds = meta.wrongIds.filter(x => x !== id);
-        saveWords(); saveMeta();
-      });
-    });
+    tbody.querySelectorAll("input[data-week]").forEach(chk => chk.addEventListener("change", (e) => {
+      const id = e.target.getAttribute("data-week");
+      const idx = words.findIndex(x => x.id === id);
+      if (idx >= 0) { words[idx].weekly = e.target.checked; saveWords(); }
+    }));
+    tbody.querySelectorAll("input[data-id]").forEach(inp => inp.addEventListener("change", (e) => {
+      const id = e.target.getAttribute("data-id");
+      const k = e.target.getAttribute("data-k");
+      const val = e.target.value.trim();
+      const idx = words.findIndex(x => x.id === id);
+      if (idx >= 0) { words[idx][k] = val; saveWords(); }
+    }));
+    tbody.querySelectorAll("button[data-del]").forEach(btn => btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-del");
+      words = words.filter(x => x.id !== id);
+      meta.wrongIds = meta.wrongIds.filter(x => x !== id);
+      saveWords(); saveMeta();
+    }));
   }
 
   function addWord(en, ko, pron, weekly) {
-    en = (en || "").trim();
-    ko = (ko || "").trim();
-    pron = (pron || "").trim();
+    en = (en || "").trim(); ko = (ko || "").trim(); pron = (pron || "").trim();
     if (!en) return;
-
     const exists = words.find(w => w.en.toLowerCase() === en.toLowerCase());
     if (exists) {
       exists.ko = ko || exists.ko;
@@ -509,7 +485,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     for (const x of DEFAULT_WORDS) addWord(x.en, x.ko || "", x.pron || "", x.weekly ?? true);
   }
 
-  // ---------- reward ----------
   function renderReward() {
     starsPill.textContent = `⭐ ${meta.stars}`;
     stickersPill.textContent = `🏅 ${meta.stickers}`;
@@ -523,8 +498,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   rewardBtn.addEventListener("click", () => {
     const need = 10;
     if (Math.floor(meta.stars / need) <= 0) return;
-    meta.stars -= need;
-    meta.stickers += 1;
+    meta.stars -= need; meta.stickers += 1;
     saveMeta();
     alert("보상 획득! 🏅 +1");
   });
@@ -546,41 +520,51 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     gameCard.style.display = "none";
   });
 
-  // ---------- TTS ----------
+  // ---------- TTS (2번 읽기) ----------
   let bestEnVoice = null;
   function pickEnglishVoice() {
     const voices = speechSynthesis.getVoices();
-    bestEnVoice =
-      voices.find(v => /^en(-|_)/i.test(v.lang)) ||
-      voices.find(v => /English/i.test(v.name)) ||
-      null;
+    bestEnVoice = voices.find(v => /^en(-|_)/i.test(v.lang)) || voices.find(v => /English/i.test(v.name)) || null;
   }
-  function updateTtsNote() {
-    const hasApi = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-    if (!hasApi) { ttsNote.textContent = ""; speakBtn.disabled = true; return; }
-    ttsNote.textContent = "";
-  }
-  function speak(text) {
+  function speakOnce(text, rate=0.88) {
     if (!("speechSynthesis" in window)) return;
-    try { speechSynthesis.cancel(); } catch {}
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
     if (bestEnVoice) u.voice = bestEnVoice;
-    u.rate = 0.9;
+    u.rate = rate;
     speechSynthesis.speak(u);
+  }
+  function speakTwice(text) {
+    if (!("speechSynthesis" in window)) return;
+    try { speechSynthesis.cancel(); } catch {}
+    // 1) 자연스럽게
+    speakOnce(text, 0.92);
+    // 2) 조금 더 천천히
+    setTimeout(() => speakOnce(text, 0.82), 650);
+  }
+  function updateTtsNote() {
+    const hasApi = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    if (!hasApi) { ttsNote.textContent = ""; speakBtn.disabled = true; promptSpeakBtn.disabled = true; return; }
+    ttsNote.textContent = "";
   }
   if ("speechSynthesis" in window) {
     pickEnglishVoice();
     speechSynthesis.onvoiceschanged = () => pickEnglishVoice();
   }
-  speakBtn.addEventListener("click", () => { if (!quiz) return; speak(quiz.order[quiz.i].en); });
+
+  function speakCurrentWord() {
+    if (!currentWord || !currentWord.en) return;
+    speakTwice(currentWord.en);
+  }
+  promptSpeakBtn.addEventListener("click", speakCurrentWord);
+  speakBtn.addEventListener("click", speakCurrentWord);
   autoSpeak.addEventListener("change", saveTts);
 
   // ---------- pool helpers ----------
   function weeklyWords(){ return words.filter(w=>w.weekly); }
   function currentPool(){ return scopeSel.value==="weekly" ? weeklyWords() : words; }
 
-  // ---------- spelling: 최대 3조각 & 후보 위치 고정 ----------
+  // ---------- spelling: 3조각 & 후보 고정 ----------
   const CONF = {
     "sch": ["sch","sk","ck"],
     "sh": ["sh","s","ch"],
@@ -639,12 +623,9 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     const keys = Object.keys(CONF).sort((a,b)=>b.length-a.length);
     const chunks = [];
     let i = 0;
-
     while (i < low.length) {
       let matched = null;
-      for (const k of keys) {
-        if (low.startsWith(k, i)) { matched = k; break; }
-      }
+      for (const k of keys) { if (low.startsWith(k, i)) { matched = k; break; } }
       if (matched) {
         const corr = en.slice(i, i+matched.length);
         const options = dedupeCase([corr, ...CONF[matched]]).slice(0,3);
@@ -661,42 +642,28 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
 
   function mergeToMax3(chunks) {
     if (chunks.length <= 3) return chunks;
-
     let parts = chunks.map(c => ({ correct:c.correct }));
     while (parts.length > 3) {
       let minIdx = 0;
-      for (let i=1;i<parts.length;i++) {
-        if (parts[i].correct.length < parts[minIdx].correct.length) minIdx = i;
-      }
-      const leftIdx = minIdx - 1;
-      const rightIdx = minIdx + 1;
-
-      if (leftIdx >= 0) {
-        parts[leftIdx].correct = parts[leftIdx].correct + parts[minIdx].correct;
-        parts.splice(minIdx, 1);
-      } else if (rightIdx < parts.length) {
-        parts[minIdx].correct = parts[minIdx].correct + parts[rightIdx].correct;
-        parts.splice(rightIdx, 1);
-      } else {
-        break;
-      }
+      for (let i=1;i<parts.length;i++) if (parts[i].correct.length < parts[minIdx].correct.length) minIdx = i;
+      const leftIdx = minIdx - 1, rightIdx = minIdx + 1;
+      if (leftIdx >= 0) { parts[leftIdx].correct += parts[minIdx].correct; parts.splice(minIdx, 1); }
+      else if (rightIdx < parts.length) { parts[minIdx].correct += parts[rightIdx].correct; parts.splice(rightIdx, 1); }
+      else break;
     }
     return parts.map(p => ({ correct: p.correct, options: mutateChunk(p.correct) }));
   }
 
-  function buildSpellParts(en) {
-    return mergeToMax3(initialChunks(en));
-  }
+  function buildSpellParts(en) { return mergeToMax3(initialChunks(en)); }
 
   function startChunkPuzzle(word) {
     const spell = (word.spell && Array.isArray(word.spell) && word.spell.length)
       ? mergeToMax3(word.spell)
       : buildSpellParts(word.en);
 
-    // ✅ 후보 순서를 처음 1회만 섞어서 고정(optOrder)
-    const optOrder = spell.map(p => shuffle([...p.options]));
-
+    const optOrder = spell.map(p => shuffle([...p.options])); // 1회 고정
     chunkState = { spell, picks: new Array(spell.length).fill(null), optOrder };
+
     chunkFeedback.textContent = "";
     renderChunkSlots();
     updateBuiltWord();
@@ -707,17 +674,16 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     chunkState.spell.forEach((part, idx) => {
       const slot = document.createElement("div");
       slot.className = "chunkCard";
-      slot.innerHTML = `<div class="muted" style="margin-bottom:6px;">${idx+1}번째</div><div class="row" style="gap:6px;"></div>`;
+      // ✅ "1번째/2번째/3번째" 표시 제거
+      slot.innerHTML = `<div class="row" style="gap:6px;"></div>`;
       const row = slot.querySelector(".row");
 
-      // ✅ 고정된 순서 사용
       chunkState.optOrder[idx].forEach(opt => {
         const b = document.createElement("button");
         b.className = "secondary btnSmall";
         b.textContent = opt;
         b.addEventListener("click", () => {
           chunkState.picks[idx] = opt;
-          // 재렌더해도 optOrder는 고정이므로 위치가 안 바뀜
           renderChunkSlots();
           updateBuiltWord();
         });
@@ -751,13 +717,9 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     if (!quiz || !chunkState) return;
     const w = quiz.order[quiz.i];
 
-    if (chunkState.picks.some(x=>!x)) {
-      chunkFeedback.textContent = "빈칸 있어요.";
-      return;
-    }
+    if (chunkState.picks.some(x=>!x)) { chunkFeedback.textContent = "빈칸 있어요."; return; }
 
     const ok = chunkState.spell.every((part,i)=>String(chunkState.picks[i]).toLowerCase()===String(part.correct).toLowerCase());
-
     if (ok) {
       chunkFeedback.textContent="정답! ✅ (+1점, +⭐1)";
       quiz.score += 1;
@@ -766,7 +728,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
       if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
       saveMeta();
       scorePill.textContent = `점수 ${quiz.score}`;
-      if (autoSpeak.checked) speak(w.en);
+      if (autoSpeak.checked) speakCurrentWord();
       nextBtn.style.display="inline-block";
     } else {
       chunkFeedback.textContent=`오답! 정답 "${w.en}"`;
@@ -777,31 +739,22 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   });
 
   // ---------- quiz ----------
-  function showQuizPanel() {
-    quizPanel.style.display = "block";
-    resultPanel.style.display = "none";
-  }
-  function showResultPanel() {
-    quizPanel.style.display = "none";
-    resultPanel.style.display = "block";
-  }
+  function showQuizPanel() { quizPanel.style.display = "block"; resultPanel.style.display = "none"; }
+  function showResultPanel() { quizPanel.style.display = "none"; resultPanel.style.display = "block"; }
 
   function startQuiz(mode, {review=false, poolOverride=null}={}) {
     const pool = poolOverride ? poolOverride : (review ? getReviewPoolFromMeta() : currentPool());
     if (words.length < 4) { alert("전체 단어가 최소 4개 필요합니다."); return; }
     if (!pool || pool.length === 0) { alert("출제할 단어가 없습니다."); return; }
 
-    // ✅ 문항 수는 항상 20개(부족하면 중복 출제)
     const MAX_Q = 20;
     let order = [];
     while (order.length < MAX_Q) {
       order = order.concat(shuffle([...pool]));
       if (order.length > MAX_Q) order = order.slice(0, MAX_Q);
-      // pool이 1개여도 while 탈출되도록 안전장치(사실상 위 로직으로 충분)
-      if (pool.length === 0) break;
     }
 
-    quiz = { mode, order, i: 0, score: 0, isReview: review, wrongIdsLocal: new Set() };
+    quiz = { mode, order, i: 0, score: 0, wrongIdsLocal: new Set() };
 
     gameCard.style.display = "block";
     nextBtn.style.display = "none";
@@ -826,10 +779,12 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     bar.style.width = `${Math.round((quiz.i / total) * 100)}%`;
 
     const w = quiz.order[quiz.i];
+    currentWord = w; // 스피커 대상
+
     const pool = makeChoices(w, 4);
 
     if (quiz.mode === "meaning") {
-      stageLabel.textContent = quiz.isReview ? "복습: 뜻" : "1단계: 뜻";
+      stageLabel.textContent = "1단계: 뜻";
       promptEl.textContent = w.en;
       hintEl.textContent = "뜻 고르기";
       pool.map(x => x.ko || "(뜻 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
@@ -837,7 +792,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     }
 
     if (quiz.mode === "pron") {
-      stageLabel.textContent = quiz.isReview ? "복습: 발음" : "2단계: 발음(한글)";
+      stageLabel.textContent = "2단계: 발음(한글)";
       promptEl.textContent = w.en;
       hintEl.textContent = "발음 고르기";
       pool.map(x => x.pron || "(발음 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
@@ -845,7 +800,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     }
 
     if (quiz.mode === "spelling") {
-      stageLabel.textContent = quiz.isReview ? "복습: 스펠링" : "3단계: 스펠링(3조각)";
+      stageLabel.textContent = "3단계: 스펠링(3조각)";
       promptEl.textContent = w.ko || "(뜻 없음)";
       hintEl.textContent = "조각 선택";
       chunkArea.style.display = "block";
@@ -871,7 +826,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
       meta.stars += 1;
       if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
       feedbackEl.textContent = "정답! 👍";
-      if (autoSpeak.checked) speak(w.en);
+      if (autoSpeak.checked) speakCurrentWord();
     } else {
       btn.classList.add("wrong");
       feedbackEl.textContent = `오답! ${w.en}`;
@@ -884,7 +839,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   }
 
   function finishQuiz() {
-    // 이번 판 오답을 meta에 반영(오답 재도전용)
     meta.wrongIds = Array.from(quiz.wrongIdsLocal);
     saveMeta();
 
@@ -904,24 +858,15 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   nextBtn.addEventListener("click", () => {
     if (!quiz) return;
     quiz.i += 1;
-    if (quiz.i >= quiz.order.length) {
-      bar.style.width = `100%`;
-      finishQuiz();
-      return;
-    }
+    if (quiz.i >= quiz.order.length) { bar.style.width = `100%`; finishQuiz(); return; }
     renderQuestion();
   });
 
   skipBtn.addEventListener("click", () => {
     if (!quiz) return;
-    meta.streak = 0;
-    saveMeta();
+    meta.streak = 0; saveMeta();
     quiz.i += 1;
-    if (quiz.i >= quiz.order.length) {
-      bar.style.width = `100%`;
-      finishQuiz();
-      return;
-    }
+    if (quiz.i >= quiz.order.length) { bar.style.width = `100%`; finishQuiz(); return; }
     renderQuestion();
   });
 
@@ -936,9 +881,7 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
     startQuiz(modeSel.value, {review:true, poolOverride: pool});
   });
 
-  retryAllBtn.addEventListener("click", () => {
-    startQuiz(modeSel.value, {review:false});
-  });
+  retryAllBtn.addEventListener("click", () => startQuiz(modeSel.value, {review:false}));
 
   reviewBtn.addEventListener("click", () => {
     const pool = getReviewPoolFromMeta();
@@ -1020,7 +963,6 @@ excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
   // ---------- start ----------
   startBtn.addEventListener("click", () => startQuiz(modeSel.value));
 
-  // 초기화
   seedDefaultWordsIfEmpty();
   renderCount();
   renderList();
