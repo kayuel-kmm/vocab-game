@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>단어 게임 v4 (모바일 극최적)</title>
+  <title>단어 게임 v5 (결과/오답재도전 + 스펠링 3조각)</title>
   <style>
     :root { --gap: 12px; }
     html, body { height: 100%; }
@@ -26,14 +26,14 @@
     button:disabled { opacity:.55; cursor:not-allowed; }
 
     .pill { display:inline-flex; gap:8px; align-items:center; padding: 6px 10px; background:#eef2ff; border:1px solid #d6dcff; border-radius:999px; font-size: 13px; }
-    .big { font-size: 34px; font-weight: 900; letter-spacing: .4px; }
+    .big { font-size: 30px; font-weight: 900; letter-spacing: .2px; }
     .muted { color:#6b7280; font-size: 13px; }
 
     .progress { height:10px; background:#eef2ff; border:1px solid #d6dcff; border-radius:999px; overflow:hidden; }
     .bar { height:100%; background:#4f46e5; width:0%; }
 
     .options { display:grid; gap: 10px; }
-    .options button { text-align:left; background:white; color:#111827; font-size: 18px; padding: 16px 14px; }
+    .options button { text-align:left; background:white; color:#111827; font-size: 18px; padding: 14px 12px; }
     .options button.correct { border-color:#16a34a; background:#ecfdf3; }
     .options button.wrong { border-color:#dc2626; background:#fff1f2; }
 
@@ -46,91 +46,47 @@
     body.gameOnly { overflow: hidden; }
     body.gameOnly header, body.gameOnly #adminCard, body.gameOnly #listCard { display:none !important; }
 
-    body.gameOnly main {
-      height: 100vh;
-      padding: 8px;
-      gap: 8px;
-    }
+    body.gameOnly main { height: 100vh; padding: 8px; gap: 8px; }
+    body.gameOnly #gameCard { display:block !important; height: calc(100vh - 16px); overflow: hidden; padding: 8px; border-radius: 14px; }
 
-    body.gameOnly #gameCard {
-    
-      height: calc(100vh - 16px);
-      overflow: hidden;
-      padding: 8px;
-      border-radius: 14px;
-    }
+    body.gameOnly #gameLayout { height: 100%; display: flex; flex-direction: column; gap: 8px; }
 
-    /* 레이아웃: 위(문제+상태 최소) / 가운데(선택지) / 아래(버튼 최소) */
-    body.gameOnly #gameLayout {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    /* ===== “영역 줄이기” 기본 규칙 (gameOnly에서만) ===== */
     body.gameOnly .big { font-size: 24px; line-height: 1.08; }
     body.gameOnly .muted { font-size: 12px; }
     body.gameOnly .pill { font-size: 11px; padding: 4px 7px; gap:6px; }
     body.gameOnly button, body.gameOnly input, body.gameOnly select { padding: 8px 9px; border-radius: 10px; }
 
-    /* 상태(점수/진행/연속)를 무조건 한 줄로 */
-    body.gameOnly #statusRow {
-      display:flex;
-      gap: 6px;
-      flex-wrap: nowrap;
-      align-items: center;
-      overflow: hidden;
-    }
-    body.gameOnly #statusRow .pill {
-      white-space: nowrap;
-      flex: 0 0 auto;
-    }
+    body.gameOnly #statusRow { display:flex; gap: 6px; flex-wrap: nowrap; align-items: center; overflow: hidden; }
+    body.gameOnly #statusRow .pill { white-space: nowrap; flex: 0 0 auto; }
 
-    /* 위쪽(문제 영역)도 더 얇게 */
     body.gameOnly #gameTop { flex: 0 0 auto; }
-    body.gameOnly #hint { display:none; } /* 힌트 문구는 공간 많이 먹어서 gameOnly에서는 숨김 */
+    body.gameOnly #hint { display:none; } /* 공간 절약 */
 
-    /* 가운데 선택지 영역: 최대 확보 */
-    body.gameOnly #gameMiddle {
-      flex: 1;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: 2px;
-    }
+    body.gameOnly #gameMiddle { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
 
-    /* 선택지는 2열, 버튼 크기는 유지하되 살짝만 줄임 */
     body.gameOnly .options { grid-template-columns: 1fr 1fr; gap: 7px; }
     body.gameOnly .options button { font-size: 16px; padding: 11px 10px; }
 
-    /* 조각 카드도 더 촘촘 */
-    .chunkCard { border: 1px solid #e7e7ee; border-radius: 14px; padding: 12px; background: #fff; }
+    .chunkCard { border: 1px solid #e7e7ee; border-radius: 14px; padding: 10px; background: #fff; }
     body.gameOnly .chunkCard { padding: 9px; border-radius: 12px; }
-    body.gameOnly .chunkCard button { font-size: 15px; padding: 10px 9px; }
 
-    /* 아래 버튼 영역: 정말 얇게 */
     body.gameOnly #gameBottom { flex: 0 0 auto; }
     body.gameOnly #gameBottom .row { gap: 6px; }
-    body.gameOnly #ttsNote { display:none; } /* 안내문도 gameOnly에서는 숨김 */
+    body.gameOnly #ttsNote { display:none; } /* 안내 숨김 */
 
-    /* ✅ 버튼 크기 차등: 작은 버튼 / 큰 버튼(다음, 건너뛰기) */
-    body.gameOnly .btnSmall {
-      padding: 6px 8px !important;
-      font-size: 12px !important;
-      border-radius: 10px !important;
-    }
-    body.gameOnly .btnBig {
-      padding: 10px 12px !important;
-      font-size: 15px !important;
-      font-weight: 800;
-    }
+    body.gameOnly .btnSmall { padding: 6px 8px !important; font-size: 12px !important; border-radius: 10px !important; }
+    body.gameOnly .btnBig { padding: 10px 12px !important; font-size: 15px !important; font-weight: 800; }
 
-    /* 아주 작은 폰 추가 압축 */
     @media (max-width: 380px){
       body.gameOnly .big { font-size: 22px; }
       body.gameOnly .options button { font-size: 15px; padding: 10px 9px; }
       body.gameOnly .btnBig { font-size: 14px !important; }
     }
+
+    /* 결과 화면 */
+    #resultPanel { display:none; }
+    #resultPanel .big { font-size: 28px; }
+    body.gameOnly #resultPanel .big { font-size: 22px; }
   </style>
 </head>
 
@@ -138,15 +94,15 @@
 <header>
   <div class="row" style="max-width:980px;margin:0 auto;">
     <div style="flex:2;min-width:220px;">
-      <div style="font-weight:900;">단어 게임</div>
-      <div class="muted">주간/누적 + 보상 + 복습 + 음성 + 스펠링(조각)</div>
+      <div style="font-weight:900;">단어 게임 v5</div>
+      <div class="muted">결과 화면 + 오답 재도전 + 스펠링 3조각</div>
     </div>
     <div class="row" style="justify-content:flex-end; flex:1;">
       <span class="pill" id="countPill">단어 0개</span>
       <select id="mode">
         <option value="meaning">1단계: 뜻</option>
         <option value="pron">2단계: 발음(한글)</option>
-        <option value="spelling">3단계: 스펠링(조각)</option>
+        <option value="spelling">3단계: 스펠링(3조각)</option>
       </select>
       <button class="ghost" id="startBtn">시작</button>
     </div>
@@ -159,7 +115,7 @@
     <div class="row">
       <div style="flex:2;min-width:240px;">
         <div style="font-weight:900;">단어 관리</div>
-        <div class="muted">처음 접속 시 기본 단어 자동 입력(폰 포함). 이후 추가/수정도 자동 저장됩니다.</div>
+        <div class="muted">대량 입력으로 추가 후, “이번 주” 체크로 주간 출제 관리</div>
       </div>
       <div class="right" style="flex:1;">
         <button class="secondary" id="exportBtn">내보내기(JSON)</button>
@@ -169,9 +125,9 @@
     </div>
 
     <div class="row" style="margin-top:12px;">
-      <input id="w_en" placeholder="영단어 (예: school)" autocomplete="off" />
-      <input id="w_ko" placeholder="뜻 (예: 학교)" autocomplete="off" />
-      <input id="w_pron" placeholder="발음(한글) (예: 스쿨)" autocomplete="off" />
+      <input id="w_en" placeholder="영단어 (예: excellent)" autocomplete="off" />
+      <input id="w_ko" placeholder="뜻 (예: 훌륭한)" autocomplete="off" />
+      <input id="w_pron" placeholder="발음(한글) (예: 엑설런트)" autocomplete="off" />
       <label class="pill" style="flex:0;min-width:auto;">
         <input type="checkbox" id="w_week" class="chk" />
         이번 주
@@ -182,13 +138,11 @@
     <details style="margin-top:12px;">
       <summary class="muted">대량 입력(간단): 영어만 / 또는 영어|뜻|발음|week</summary>
       <textarea id="bulk" placeholder="예)
+excellent
 school
-book
-pizza
 
 또는
-school | 학교 | 스쿨 | week
-book | 책 | 북"></textarea>
+excellent | 아주 훌륭한 | 엑설런트 | week"></textarea>
       <div class="row" style="margin-top:8px;">
         <button class="secondary" id="bulkAddBtn">대량 추가</button>
         <span class="muted">영어만 넣으면 뜻/발음은 빈칸으로 들어갑니다.</span>
@@ -206,7 +160,7 @@ book | 책 | 북"></textarea>
   <section class="card" id="gameCard" style="display:none;">
     <div id="gameLayout">
 
-      <!-- 위: 문제 + 상태(한 줄) -->
+      <!-- 위: 문제 + 상태 -->
       <div id="gameTop">
         <div class="muted" id="stageLabel">단계</div>
         <div class="big" id="prompt">-</div>
@@ -222,23 +176,45 @@ book | 책 | 북"></textarea>
         </div>
       </div>
 
-      <!-- 가운데: 선택지 -->
+      <!-- 가운데: 문제/선택지 또는 결과 -->
       <div id="gameMiddle">
-        <div class="options" id="options"></div>
+        <div id="quizPanel">
+          <div class="options" id="options"></div>
 
-        <div id="chunkArea" style="display:none; margin-top:10px;">
-          <div class="muted">조각을 순서대로 골라 단어를 완성하세요.</div>
-          <div id="chunkSlots" style="display:grid; gap:8px; margin-top:8px;"></div>
-          <div class="row" style="margin-top:10px;">
-            <span class="pill" id="builtWordPill">완성: </span>
-            <button class="secondary btnSmall" id="resetChunksBtn">처음부터</button>
-            <button class="ghost btnSmall" id="checkChunksBtn">정답 확인</button>
+          <div id="chunkArea" style="display:none; margin-top:10px;">
+            <div class="muted">조각을 순서대로 골라 단어를 완성하세요. (최대 3조각)</div>
+            <div id="chunkSlots" style="display:grid; gap:8px; margin-top:8px;"></div>
+            <div class="row" style="margin-top:10px;">
+              <span class="pill" id="builtWordPill">완성: </span>
+              <button class="secondary btnSmall" id="resetChunksBtn">처음부터</button>
+              <button class="ghost btnSmall" id="checkChunksBtn">정답 확인</button>
+            </div>
+            <div class="muted" id="chunkFeedback" style="margin-top:6px;"></div>
           </div>
-          <div class="muted" id="chunkFeedback" style="margin-top:6px;"></div>
+        </div>
+
+        <div id="resultPanel">
+          <div class="big" id="resultTitle">끝!</div>
+          <div class="muted" id="resultSub" style="margin-top:6px;"></div>
+
+          <div class="row" style="margin-top:10px;">
+            <span class="pill" id="resultScorePill">점수</span>
+            <span class="pill" id="resultWrongPill">오답</span>
+            <span class="pill" id="resultStarsPill">⭐</span>
+            <span class="pill" id="resultStickersPill">🏅</span>
+          </div>
+
+          <div class="row" style="margin-top:12px;">
+            <button class="ghost btnBig" id="retryWrongBtn">오답 다시 풀기</button>
+            <button class="secondary btnBig" id="retryAllBtn">한 번 더</button>
+          </div>
+          <div class="row" style="margin-top:10px;">
+            <button class="secondary btnSmall" id="backToManageBtn">관리 화면</button>
+          </div>
         </div>
       </div>
 
-      <!-- 아래: 버튼(작게, 다음/건너뛰기만 크게) -->
+      <!-- 아래: 버튼 -->
       <div id="gameBottom">
         <div class="row">
           <select class="btnSmall" id="scope">
@@ -288,10 +264,11 @@ book | 책 | 북"></textarea>
 
 <script>
 (() => {
-  const LS_WORDS = "kid_vocab_v4_words";
-  const LS_TTS   = "kid_vocab_v4_tts";
-  const LS_META  = "kid_vocab_v4_meta";
+  const LS_WORDS = "kid_vocab_v5_words";
+  const LS_TTS   = "kid_vocab_v5_tts";
+  const LS_META  = "kid_vocab_v5_meta";
 
+  // 기본 단어(원하시면 여기 확장)
   const DEFAULT_WORDS = [
     {"en":"fun","ko":"재미있는","pron":"펀","weekly":true},
     {"en":"bed","ko":"침대","pron":"베드","weekly":true},
@@ -300,109 +277,16 @@ book | 책 | 북"></textarea>
     {"en":"play","ko":"놀다","pron":"플레이","weekly":true},
     {"en":"go","ko":"가다","pron":"고","weekly":true},
     {"en":"school","ko":"학교","pron":"스쿨","weekly":true},
-    {"en":"like","ko":"좋아하다","pron":"라이크","weekly":true},
-    {"en":"read","ko":"읽다","pron":"리드","weekly":true},
-    {"en":"have","ko":"가지다/하다","pron":"해브","weekly":true},
-    {"en":"lesson","ko":"수업","pron":"레슨","weekly":true},
-    {"en":"together","ko":"함께","pron":"투게더","weekly":true},
-    {"en":"pizza","ko":"피자","pron":"피자","weekly":true},
-    {"en":"sit","ko":"앉다","pron":"싯","weekly":true},
-    {"en":"good","ko":"좋은","pron":"굿","weekly":true},
-    {"en":"class","ko":"반/수업","pron":"클래스","weekly":true},
-    {"en":"hair","ko":"머리카락","pron":"헤어","weekly":true},
-    {"en":"write","ko":"쓰다","pron":"라이트","weekly":true},
-    {"en":"time","ko":"시간","pron":"타임","weekly":true},
-    {"en":"soccer","ko":"축구","pron":"사커","weekly":true},
-    {"en":"can","ko":"할 수 있다","pron":"캔","weekly":true},
-    {"en":"look","ko":"보다","pron":"룩","weekly":true},
-    {"en":"please","ko":"제발/부탁해요","pron":"플리즈","weekly":true},
-    {"en":"world","ko":"세계","pron":"월드","weekly":true},
-    {"en":"hat","ko":"모자","pron":"햇","weekly":true},
-    {"en":"up","ko":"위로/올라가","pron":"업","weekly":true},
-    {"en":"old","ko":"늙은/오래된","pron":"올드","weekly":true},
-    {"en":"great","ko":"멋진/훌륭한","pron":"그레이트","weekly":true},
-    {"en":"song","ko":"노래","pron":"송","weekly":true},
-    {"en":"listen","ko":"듣다","pron":"리슨","weekly":true},
-    {"en":"day","ko":"날/하루","pron":"데이","weekly":true},
-    {"en":"want","ko":"원하다","pron":"원트","weekly":true},
-    {"en":"and","ko":"그리고","pron":"앤드","weekly":true},
-    {"en":"study","ko":"공부하다","pron":"스터디","weekly":true},
-    {"en":"summer","ko":"여름","pron":"서머","weekly":true},
-    {"en":"picture","ko":"사진/그림","pron":"픽처","weekly":true},
-    {"en":"bag","ko":"가방","pron":"백","weekly":true},
-    {"en":"dog","ko":"개","pron":"독","weekly":true},
-    {"en":"who","ko":"누구","pron":"후","weekly":true},
-    {"en":"week","ko":"주/일주일","pron":"위크","weekly":true},
-    {"en":"today","ko":"오늘","pron":"투데이","weekly":true},
-    {"en":"story","ko":"이야기","pron":"스토리","weekly":true},
-    {"en":"talk","ko":"말하다","pron":"톡","weekly":true},
-    {"en":"do","ko":"하다","pron":"두","weekly":true},
-    {"en":"check","ko":"확인하다","pron":"체크","weekly":true},
-    {"en":"happy","ko":"행복한","pron":"해피","weekly":true},
-    {"en":"tiger","ko":"호랑이","pron":"타이거","weekly":true},
-    {"en":"homework","ko":"숙제","pron":"홈워크","weekly":true},
-    {"en":"cap","ko":"모자(캡)","pron":"캡","weekly":true},
-    {"en":"jump","ko":"점프하다","pron":"점프","weekly":true},
-    {"en":"watch","ko":"보다/시계","pron":"워치","weekly":true},
-    {"en":"friend","ko":"친구","pron":"프렌드","weekly":true},
-    {"en":"music","ko":"음악","pron":"뮤직","weekly":true},
-    {"en":"in","ko":"~안에","pron":"인","weekly":true},
-    {"en":"room","ko":"방","pron":"룸","weekly":true},
-    {"en":"take","ko":"가지다/타다","pron":"테이크","weekly":true},
-    {"en":"turn","ko":"돌다/차례","pron":"턴","weekly":true},
-    {"en":"put","ko":"놓다","pron":"풋","weekly":true},
-    {"en":"science","ko":"과학","pron":"사이언스","weekly":true},
-    {"en":"breakfast","ko":"아침 식사","pron":"브렉퍼스트","weekly":true},
-    {"en":"big","ko":"큰","pron":"빅","weekly":true},
-    {"en":"box","ko":"상자","pron":"박스","weekly":true},
-    {"en":"about","ko":"~에 대해/대략","pron":"어바웃","weekly":true},
-    {"en":"movie","ko":"영화","pron":"무비","weekly":true},
-    {"en":"word","ko":"단어","pron":"워드","weekly":true},
-    {"en":"say","ko":"말하다","pron":"세이","weekly":true},
-    {"en":"birthday","ko":"생일","pron":"벌스데이","weekly":true},
-    {"en":"will","ko":"~할 것이다","pron":"윌","weekly":true},
-    {"en":"sing","ko":"노래하다","pron":"싱","weekly":true},
-    {"en":"bike","ko":"자전거","pron":"바이크","weekly":true},
-    {"en":"library","ko":"도서관","pron":"라이브러리","weekly":true},
-    {"en":"festival","ko":"축제","pron":"페스티벌","weekly":true},
-    {"en":"sad","ko":"슬픈","pron":"새드","weekly":true},
-    {"en":"run","ko":"달리다","pron":"런","weekly":true},
-    {"en":"ball","ko":"공","pron":"볼","weekly":true},
-    {"en":"on","ko":"~위에","pron":"온","weekly":true},
-    {"en":"many","ko":"많은","pron":"매니","weekly":true},
-    {"en":"color","ko":"색/색깔","pron":"컬러","weekly":true},
-    {"en":"come","ko":"오다","pron":"컴","weekly":true},
-    {"en":"angry","ko":"화난","pron":"앵그리","weekly":true},
-    {"en":"speak","ko":"말하다","pron":"스피크","weekly":true},
-    {"en":"water","ko":"물","pron":"워터","weekly":true},
-    {"en":"morning","ko":"아침","pron":"모닝","weekly":true},
-    {"en":"afternoon","ko":"오후","pron":"애프터눈","weekly":true},
-    {"en":"milk","ko":"우유","pron":"밀크","weekly":true},
-    {"en":"tea","ko":"차(티)","pron":"티","weekly":true},
-    {"en":"japan","ko":"일본","pron":"재팬","weekly":true},
-    {"en":"china","ko":"중국","pron":"차이나","weekly":true},
-    {"en":"or","ko":"또는","pron":"오어","weekly":true},
-    {"en":"from","ko":"~에서(부터)","pron":"프롬","weekly":true},
-    {"en":"pen","ko":"펜","pron":"펜","weekly":true},
-    {"en":"desk","ko":"책상","pron":"데스크","weekly":true},
-    {"en":"toy","ko":"장난감","pron":"토이","weekly":true},
-    {"en":"see","ko":"보다","pron":"씨","weekly":true},
-    {"en":"for","ko":"~을/를 위해","pron":"포","weekly":true},
-    {"en":"smell","ko":"냄새/냄새 맡다","pron":"스멜","weekly":true},
-    {"en":"under","ko":"~아래에","pron":"언더","weekly":true},
-    {"en":"swim","ko":"수영하다","pron":"스윔","weekly":true},
-    {"en":"make","ko":"만들다","pron":"메이크","weekly":true},
-    {"en":"ready","ko":"준비된","pron":"레디","weekly":true},
-    {"en":"weekend","ko":"주말","pron":"위켄드","weekly":true},
-    {"en":"tomorrow","ko":"내일","pron":"투모로우","weekly":true},
-    {"en":"nice","ko":"좋은/친절한","pron":"나이스","weekly":true},
     {"en":"excellent","ko":"아주 훌륭한","pron":"엑설런트","weekly":true}
   ];
 
   /** @type {{id:string,en:string,ko:string,pron:string,weekly?:boolean, spell?:any}[]} */
   let words = loadWords();
   let meta = loadMeta();
-  let quiz = null;
+
+  // quiz state
+  let quiz = null; // {mode, order, i, score, isReview, wrongIdsLocal:Set<string>}
+  let chunkState = null; // {spell, picks}
 
   // elements
   const countPill = document.getElementById("countPill");
@@ -429,6 +313,19 @@ book | 책 | 북"></textarea>
   const promptEl = document.getElementById("prompt");
   const hintEl = document.getElementById("hint");
   const optionsEl = document.getElementById("options");
+
+  const quizPanel = document.getElementById("quizPanel");
+  const resultPanel = document.getElementById("resultPanel");
+
+  const resultTitle = document.getElementById("resultTitle");
+  const resultSub = document.getElementById("resultSub");
+  const resultScorePill = document.getElementById("resultScorePill");
+  const resultWrongPill = document.getElementById("resultWrongPill");
+  const resultStarsPill = document.getElementById("resultStarsPill");
+  const resultStickersPill = document.getElementById("resultStickersPill");
+  const retryWrongBtn = document.getElementById("retryWrongBtn");
+  const retryAllBtn = document.getElementById("retryAllBtn");
+  const backToManageBtn = document.getElementById("backToManageBtn");
 
   const chunkArea = document.getElementById("chunkArea");
   const chunkSlots = document.getElementById("chunkSlots");
@@ -461,7 +358,7 @@ book | 책 | 북"></textarea>
 
   const tbody = document.getElementById("tbody");
 
-  // storage
+  // ---------- storage ----------
   function loadWords() {
     try {
       const raw = localStorage.getItem(LS_WORDS);
@@ -519,6 +416,7 @@ book | 책 | 북"></textarea>
     localStorage.setItem(LS_TTS, JSON.stringify({ autoSpeak: autoSpeak.checked }));
   }
 
+  // ---------- UI render ----------
   function renderCount() { countPill.textContent = `단어 ${words.length}개`; }
 
   function escapeHtml(s) {
@@ -589,7 +487,470 @@ book | 책 | 북"></textarea>
     for (const x of DEFAULT_WORDS) addWord(x.en, x.ko || "", x.pron || "", x.weekly ?? true);
   }
 
-  // 관리자 버튼
+  // ---------- reward ----------
+  function renderReward() {
+    starsPill.textContent = `⭐ ${meta.stars}`;
+    stickersPill.textContent = `🏅 ${meta.stickers}`;
+    const need = 10;
+    const can = Math.floor(meta.stars / need);
+    rewardBtn.disabled = can <= 0;
+    rewardHint.textContent = can > 0 ? `보상 ${can}개 가능` : `⭐${need}개=🏅1`;
+    streakPill.textContent = `연속 ${meta.streak}`;
+  }
+
+  rewardBtn.addEventListener("click", () => {
+    const need = 10;
+    if (Math.floor(meta.stars / need) <= 0) return;
+    meta.stars -= need;
+    meta.stickers += 1;
+    saveMeta();
+    alert("보상 획득! 🏅 +1");
+  });
+
+  // ---------- gameOnly ----------
+  function setGameOnly(on) {
+    document.body.classList.toggle("gameOnly", !!on);
+    toggleGameOnly.textContent = document.body.classList.contains("gameOnly") ? "↩️" : "📱";
+  }
+  toggleGameOnly.addEventListener("click", () => setGameOnly(!document.body.classList.contains("gameOnly")));
+
+  function autoGameOnlyOnMobile() {
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+    if (isMobile) setGameOnly(true);
+  }
+
+  backToManageBtn.addEventListener("click", () => {
+    setGameOnly(false);
+    gameCard.style.display = "none";
+  });
+
+  // ---------- TTS ----------
+  let bestEnVoice = null;
+  function pickEnglishVoice() {
+    const voices = speechSynthesis.getVoices();
+    bestEnVoice =
+      voices.find(v => /^en(-|_)/i.test(v.lang)) ||
+      voices.find(v => /English/i.test(v.name)) ||
+      null;
+  }
+  function updateTtsNote() {
+    const hasApi = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    if (!hasApi) { ttsNote.textContent = ""; speakBtn.disabled = true; return; }
+    ttsNote.textContent = "";
+  }
+  function speak(text) {
+    if (!("speechSynthesis" in window)) return;
+    try { speechSynthesis.cancel(); } catch {}
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    if (bestEnVoice) u.voice = bestEnVoice;
+    u.rate = 0.9;
+    speechSynthesis.speak(u);
+  }
+  if ("speechSynthesis" in window) {
+    pickEnglishVoice();
+    speechSynthesis.onvoiceschanged = () => pickEnglishVoice();
+  }
+  speakBtn.addEventListener("click", () => { if (!quiz) return; speak(quiz.order[quiz.i].en); });
+  autoSpeak.addEventListener("change", saveTts);
+
+  // ---------- pool helpers ----------
+  function weeklyWords(){ return words.filter(w=>w.weekly); }
+  function currentPool(){ return scopeSel.value==="weekly" ? weeklyWords() : words; }
+
+  // ---------- spelling: 최대 3조각 ----------
+  // 자주 쓰는 조각(우선 매칭)
+  const CONF = {
+    "sch": ["sch","sk","ck"],
+    "sh": ["sh","s","ch"],
+    "ch": ["ch","sh","tch"],
+    "ck": ["ck","k","c"],
+    "ph": ["ph","f","p"],
+    "th": ["th","t","s"],
+    "wh": ["wh","w","h"],
+    "oo": ["oo","u","ou"],
+    "ee": ["ee","i","ea"],
+    "ea": ["ea","e","ee"],
+    "ai": ["ai","a","ay"],
+    "ay": ["ay","ai","a"],
+    "oa": ["oa","o","ow"],
+    "ow": ["ow","o","oa"],
+    "ou": ["ou","u","oo"],
+    "ar": ["ar","er","or"],
+    "er": ["er","ar","or"],
+    "or": ["or","er","ar"],
+    "ur": ["ur","er","or"],
+    "tion": ["tion","shun","cion"],
+    "ing": ["ing","in","ng"]
+  };
+
+  function dedupeCase(arr) {
+    const out = [];
+    for (const x of arr) if (!out.map(o=>String(o).toLowerCase()).includes(String(x).toLowerCase())) out.push(x);
+    return out;
+  }
+
+  function mutateChunk(chunk) {
+    // 너무 복잡하게 가지 않고, “헷갈릴 법한 대체” 2개 생성
+    const low = chunk.toLowerCase();
+    const rules = [
+      [/c/g, "k"], [/k/g, "c"],
+      [/ph/g, "f"], [/f/g, "ph"],
+      [/sh/g, "ch"], [/ch/g, "sh"],
+      [/oo/g, "u"], [/u/g, "oo"],
+      [/ee/g, "i"], [/i/g, "ee"],
+      [/a/g, "e"], [/e/g, "a"],
+      [/o/g, "u"], [/u/g, "o"],
+      [/l/g, "r"], [/r/g, "l"]
+    ];
+    const variants = [];
+    for (const [re, rep] of rules) {
+      if (re.test(low)) {
+        const v = low.replace(re, rep);
+        if (v !== low) variants.push(v);
+      }
+      if (variants.length >= 4) break;
+    }
+    const out = dedupeCase([chunk, ...variants]).slice(0, 3);
+    // 대문자 유지보다는 소문자로 통일(아이 입력이 아니라 버튼 선택이므로 OK)
+    return out;
+  }
+
+  function initialChunks(en) {
+    const low = en.toLowerCase();
+    const keys = Object.keys(CONF).sort((a,b)=>b.length-a.length);
+    const chunks = [];
+    let i = 0;
+
+    while (i < low.length) {
+      let matched = null;
+      for (const k of keys) {
+        if (low.startsWith(k, i)) { matched = k; break; }
+      }
+      if (matched) {
+        const corr = en.slice(i, i+matched.length);
+        const options = dedupeCase([corr, ...CONF[matched]]).slice(0,3);
+        chunks.push({ correct:corr, options });
+        i += matched.length;
+      } else {
+        const corr = en[i];
+        chunks.push({ correct:corr, options: mutateChunk(corr) });
+        i += 1;
+      }
+    }
+    return chunks;
+  }
+
+  function mergeToMax3(chunks) {
+    // chunks가 3개 이하이면 그대로
+    if (chunks.length <= 3) return chunks;
+
+    // 인접한 것끼리 합쳐서 3개로 줄이기:
+    // 가장 짧은 조각부터 옆과 합치기 반복(아이 난이도 완화)
+    let parts = chunks.map(c => ({ correct:c.correct, options:null }));
+    while (parts.length > 3) {
+      // 가장 짧은 조각 찾기
+      let minIdx = 0;
+      for (let i=1;i<parts.length;i++) {
+        if (parts[i].correct.length < parts[minIdx].correct.length) minIdx = i;
+      }
+      // 합칠 대상 선택(왼쪽 우선, 없으면 오른쪽)
+      const leftIdx = minIdx - 1;
+      const rightIdx = minIdx + 1;
+
+      if (leftIdx >= 0) {
+        parts[leftIdx].correct = parts[leftIdx].correct + parts[minIdx].correct;
+        parts.splice(minIdx, 1);
+      } else if (rightIdx < parts.length) {
+        parts[minIdx].correct = parts[minIdx].correct + parts[rightIdx].correct;
+        parts.splice(rightIdx, 1);
+      } else {
+        break;
+      }
+    }
+
+    // options 재생성
+    return parts.map(p => ({ correct: p.correct, options: mutateChunk(p.correct) }));
+  }
+
+  function buildSpellParts(en) {
+    const chunks = initialChunks(en);
+    // 너무 잘게 쪼개지는 단어는 3개로 압축
+    const max3 = mergeToMax3(chunks);
+
+    // 그래도 1~2개가 되는 아주 짧은 단어는 그대로(문제 없음)
+    return max3;
+  }
+
+  function startChunkPuzzle(word) {
+    const spell = (word.spell && Array.isArray(word.spell) && word.spell.length)
+      ? mergeToMax3(word.spell) // 사용자가 커스텀 넣어도 3개 제한
+      : buildSpellParts(word.en);
+
+    chunkState = { spell, picks: new Array(spell.length).fill(null) };
+    chunkFeedback.textContent = "";
+    renderChunkSlots(); updateBuiltWord();
+  }
+
+  function renderChunkSlots() {
+    chunkSlots.innerHTML = "";
+    chunkState.spell.forEach((part, idx) => {
+      const slot = document.createElement("div");
+      slot.className = "chunkCard";
+      slot.innerHTML = `<div class="muted" style="margin-bottom:6px;">${idx+1}번째</div><div class="row" style="gap:6px;"></div>`;
+      const row = slot.querySelector(".row");
+
+      shuffle(part.options).forEach(opt => {
+        const b = document.createElement("button");
+        b.className = "secondary btnSmall";
+        b.textContent = opt;
+        b.addEventListener("click", () => {
+          chunkState.picks[idx] = opt;
+          renderChunkSlots(); updateBuiltWord();
+        });
+        if (chunkState.picks[idx] && String(chunkState.picks[idx]).toLowerCase() === String(opt).toLowerCase()) {
+          b.className = "btnSmall";
+          b.style.background = "#ecfdf3";
+          b.style.border = "1px solid #16a34a";
+          b.style.color = "#111827";
+        }
+        row.appendChild(b);
+      });
+
+      chunkSlots.appendChild(slot);
+    });
+  }
+
+  function updateBuiltWord() {
+    builtWordPill.textContent = `완성: ${chunkState.picks.map(x=>x||"□").join("")}`;
+  }
+
+  resetChunksBtn.addEventListener("click", () => {
+    if (!chunkState) return;
+    chunkState.picks.fill(null);
+    chunkFeedback.textContent = "";
+    renderChunkSlots(); updateBuiltWord();
+  });
+
+  checkChunksBtn.addEventListener("click", () => {
+    if (!quiz || !chunkState) return;
+    const w = quiz.order[quiz.i];
+
+    if (chunkState.picks.some(x=>!x)) {
+      chunkFeedback.textContent = "빈칸 있어요.";
+      return;
+    }
+
+    const ok = chunkState.spell.every((part,i)=>String(chunkState.picks[i]).toLowerCase()===String(part.correct).toLowerCase());
+
+    if (ok) {
+      chunkFeedback.textContent="정답! ✅ (+1점, +⭐1)";
+      quiz.score += 1;
+      meta.stars += 1;
+      meta.streak += 1;
+      if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
+      saveMeta();
+      scorePill.textContent = `점수 ${quiz.score}`;
+      if (autoSpeak.checked) speak(w.en);
+      nextBtn.style.display="inline-block";
+    } else {
+      chunkFeedback.textContent=`오답! 정답 "${w.en}"`;
+      meta.streak = 0;
+      quiz.wrongIdsLocal.add(w.id);
+      saveMeta();
+    }
+  });
+
+  // ---------- quiz ----------
+  function showQuizPanel() {
+    quizPanel.style.display = "block";
+    resultPanel.style.display = "none";
+  }
+  function showResultPanel() {
+    quizPanel.style.display = "none";
+    resultPanel.style.display = "block";
+  }
+
+  function startQuiz(mode, {review=false, poolOverride=null}={}) {
+    const pool = poolOverride ? poolOverride : (review ? getReviewPoolFromMeta() : currentPool());
+
+    if (words.length < 4) { alert("전체 단어가 최소 4개 필요합니다."); return; }
+    if (!poolOverride && !review && pool.length < 4 && scopeSel.value === "weekly") {
+      alert("이번 주 단어가 4개 미만입니다. (최소 4개 필요)\n이번 주 체크를 더 하시거나, 누적으로 바꿔주세요.");
+      return;
+    }
+    if (pool.length === 0) { alert("풀 단어가 없습니다."); return; }
+
+    const order = shuffle([...pool]).slice(0, Math.min(pool.length, 20));
+    quiz = { mode, order, i: 0, score: 0, isReview: review, wrongIdsLocal: new Set() };
+
+    // 시작 시 화면/상태 정리
+    gameCard.style.display = "block";
+    nextBtn.style.display = "none";
+    feedbackEl.textContent = "";
+    showQuizPanel();
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    if (!quiz) return;
+
+    feedbackEl.textContent = "";
+    nextBtn.style.display = "none";
+    optionsEl.innerHTML = "";
+    chunkArea.style.display = "none";
+    chunkFeedback.textContent = "";
+
+    const total = quiz.order.length;
+    const idx = quiz.i + 1;
+    idxPill.textContent = `${idx} / ${total}`;
+    scorePill.textContent = `점수 ${quiz.score}`;
+    bar.style.width = `${Math.round((quiz.i / total) * 100)}%`;
+
+    const w = quiz.order[quiz.i];
+    const pool = makeChoices(w, 4);
+
+    if (quiz.mode === "meaning") {
+      stageLabel.textContent = quiz.isReview ? "복습: 뜻" : "1단계: 뜻";
+      promptEl.textContent = w.en;
+      hintEl.textContent = "뜻 고르기";
+      pool.map(x => x.ko || "(뜻 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
+      return;
+    }
+
+    if (quiz.mode === "pron") {
+      stageLabel.textContent = quiz.isReview ? "복습: 발음" : "2단계: 발음(한글)";
+      promptEl.textContent = w.en;
+      hintEl.textContent = "발음 고르기";
+      pool.map(x => x.pron || "(발음 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
+      return;
+    }
+
+    if (quiz.mode === "spelling") {
+      stageLabel.textContent = quiz.isReview ? "복습: 스펠링" : "3단계: 스펠링(3조각)";
+      promptEl.textContent = w.ko || "(뜻 없음)";
+      hintEl.textContent = "조각 선택";
+      chunkArea.style.display = "block";
+      startChunkPuzzle(w);
+      return;
+    }
+  }
+
+  function addOptionButton(label, isCorrect, w) {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.addEventListener("click", () => onPick(btn, isCorrect, w));
+    optionsEl.appendChild(btn);
+  }
+
+  function onPick(btn, isCorrect, w) {
+    [...optionsEl.children].forEach(b => b.disabled = true);
+
+    if (isCorrect) {
+      btn.classList.add("correct");
+      quiz.score += 1;
+      meta.streak += 1;
+      meta.stars += 1;
+      if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
+      feedbackEl.textContent = "정답! 👍";
+      if (autoSpeak.checked) speak(w.en);
+    } else {
+      btn.classList.add("wrong");
+      feedbackEl.textContent = `오답! ${w.en}`;
+      meta.streak = 0;
+      quiz.wrongIdsLocal.add(w.id);
+    }
+
+    saveMeta();
+    nextBtn.style.display = "inline-block";
+  }
+
+  function finishQuiz() {
+    // 이번 판 오답을 meta에 합치되, “최근 오답”처럼 쓰기 위해 meta.wrongIds를 교체
+    meta.wrongIds = Array.from(quiz.wrongIdsLocal);
+    saveMeta();
+
+    const wrongCount = meta.wrongIds.length;
+    const total = quiz.order.length;
+    resultTitle.textContent = "끝!";
+    resultSub.textContent = `총 ${total}문제 완료`;
+    resultScorePill.textContent = `점수 ${quiz.score}`;
+    resultWrongPill.textContent = `오답 ${wrongCount}`;
+    resultStarsPill.textContent = `⭐ ${meta.stars}`;
+    resultStickersPill.textContent = `🏅 ${meta.stickers}`;
+
+    // 오답이 없으면 오답버튼 비활성
+    retryWrongBtn.disabled = wrongCount === 0;
+
+    showResultPanel();
+  }
+
+  nextBtn.addEventListener("click", () => {
+    if (!quiz) return;
+    quiz.i += 1;
+    if (quiz.i >= quiz.order.length) {
+      bar.style.width = `100%`;
+      finishQuiz();
+      return;
+    }
+    renderQuestion();
+  });
+
+  skipBtn.addEventListener("click", () => {
+    if (!quiz) return;
+    meta.streak = 0;
+    saveMeta();
+    quiz.i += 1;
+    if (quiz.i >= quiz.order.length) {
+      bar.style.width = `100%`;
+      finishQuiz();
+      return;
+    }
+    renderQuestion();
+  });
+
+  function getReviewPoolFromMeta() {
+    const wrongSet = new Set(meta.wrongIds);
+    return words.filter(w => wrongSet.has(w.id));
+  }
+
+  retryWrongBtn.addEventListener("click", () => {
+    const pool = getReviewPoolFromMeta();
+    if (pool.length === 0) return;
+    startQuiz(modeSel.value, {review:true, poolOverride: pool});
+  });
+
+  retryAllBtn.addEventListener("click", () => {
+    // 같은 모드/범위로 다시
+    startQuiz(modeSel.value, {review:false});
+  });
+
+  reviewBtn.addEventListener("click", () => {
+    const pool = getReviewPoolFromMeta();
+    if (pool.length === 0) { alert("틀린 단어 없음! 👍"); return; }
+    startQuiz(modeSel.value, {review:true, poolOverride: pool});
+  });
+
+  // ---------- choices ----------
+  function makeChoices(correct, n) {
+    const basePool = currentPool();
+    const others = basePool.filter(w => w.id !== correct.id);
+    const fallback = words.filter(w => w.id !== correct.id);
+    const src = (others.length >= n-1) ? others : fallback;
+    const picks = shuffle(src).slice(0, Math.max(0, n - 1));
+    return shuffle([correct, ...picks]);
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // ---------- admin actions ----------
   addBtn.addEventListener("click", () => {
     addWord(w_en.value, w_ko.value, w_pron.value, w_week.checked);
     w_en.value = ""; w_ko.value = ""; w_pron.value = ""; w_week.checked = false;
@@ -627,7 +988,7 @@ book | 책 | 북"></textarea>
   });
 
   resetBtn.addEventListener("click", () => {
-    if (!confirm("정말 전체 삭제할까요? (보상/복습 기록도 초기화됩니다)")) return;
+    if (!confirm("정말 전체 삭제할까요?")) return;
     words = [];
     meta = { stars: 0, stickers: 0, streak: 0, wrongIds: [] };
     localStorage.removeItem(LS_WORDS);
@@ -638,369 +999,20 @@ book | 책 | 북"></textarea>
   clearWeeklyBtn.addEventListener("click", () => { words.forEach(w => w.weekly = false); saveWords(); });
   markAllWeeklyBtn.addEventListener("click", () => { words.forEach(w => w.weekly = true); saveWords(); });
 
-  // 보상
-  function renderReward() {
-    starsPill.textContent = `⭐ ${meta.stars}`;
-    stickersPill.textContent = `🏅 ${meta.stickers}`;
-    const need = 10;
-    const can = Math.floor(meta.stars / need);
-    rewardBtn.disabled = can <= 0;
-    rewardHint.textContent = can > 0 ? `보상 ${can}개 가능` : `⭐${need}개=🏅1`;
-    streakPill.textContent = `연속 ${meta.streak}`;
-  }
-
-  rewardBtn.addEventListener("click", () => {
-    const need = 10;
-    if (Math.floor(meta.stars / need) <= 0) return;
-    meta.stars -= need;
-    meta.stickers += 1;
-    saveMeta();
-    alert("보상 획득! 🏅 +1");
-  });
-
-  // TTS
-  let bestEnVoice = null;
-  function pickEnglishVoice() {
-    const voices = speechSynthesis.getVoices();
-    bestEnVoice =
-      voices.find(v => /^en(-|_)/i.test(v.lang)) ||
-      voices.find(v => /English/i.test(v.name)) ||
-      null;
-  }
-  function updateTtsNote() {
-    const hasApi = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
-    if (!hasApi) { ttsNote.textContent = ""; speakBtn.disabled = true; return; }
-    ttsNote.textContent = ""; // gameOnly에서는 숨김이므로 비워둠
-  }
-  function speak(text) {
-    if (!("speechSynthesis" in window)) return;
-    try { speechSynthesis.cancel(); } catch {}
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US";
-    if (bestEnVoice) u.voice = bestEnVoice;
-    u.rate = 0.9;
-    speechSynthesis.speak(u);
-  }
-  if ("speechSynthesis" in window) { pickEnglishVoice(); speechSynthesis.onvoiceschanged = () => pickEnglishVoice(); }
-  speakBtn.addEventListener("click", () => { if (!quiz) return; speak(quiz.order[quiz.i].en); });
-  autoSpeak.addEventListener("change", saveTts);
-
-  // 게임화면만 토글
-  function setGameOnly(on) {
-    document.body.classList.toggle("gameOnly", !!on);
-    toggleGameOnly.textContent = document.body.classList.contains("gameOnly") ? "↩️" : "📱";
-  }
-  toggleGameOnly.addEventListener("click", () => setGameOnly(!document.body.classList.contains("gameOnly")));
-function autoGameOnlyOnMobile() {
-  const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
-  if (!isMobile) return;
-
-  setGameOnly(true);
-
-  // ✅ 폰에서는 들어오자마자 자동으로 퀴즈 시작
-  // (단어가 최소 4개 있어야 시작 가능)
-  if (words.length >= 4) {
-    startQuiz(modeSel.value);   // 기본은 1단계: 뜻
-  }
-}
-
-  // 출제 풀
-  function weeklyWords(){ return words.filter(w=>w.weekly); }
-  function currentPool(){ return scopeSel.value==="weekly" ? weeklyWords() : words; }
-
-  // 스펠링 조각
-  function dedupeCase(arr) {
-    const out = [];
-    for (const x of arr) if (!out.map(o=>String(o).toLowerCase()).includes(String(x).toLowerCase())) out.push(x);
-    return out;
-  }
-  const CONF = {
-    "sch": ["sch","sk","ck"],
-    "sh": ["sh","s","ch"],
-    "ch": ["ch","sh","tch"],
-    "ck": ["ck","k","c"],
-    "ph": ["ph","f","p"],
-    "th": ["th","t","s"],
-    "wh": ["wh","w","h"],
-    "oo": ["oo","u","ou"],
-    "ee": ["ee","i","ea"],
-    "ea": ["ea","e","ee"],
-    "ai": ["ai","a","ay"],
-    "ay": ["ay","ai","a"],
-    "oa": ["oa","o","ow"],
-    "ow": ["ow","o","oa"],
-    "ou": ["ou","u","oo"],
-    "ar": ["ar","er","or"],
-    "er": ["er","ar","or"],
-    "or": ["or","er","ar"],
-    "ur": ["ur","er","or"],
-    "tion": ["tion","shun","cion"],
-    "ing": ["ing","in","ng"]
-  };
-  function chunkWord(en) {
-    const low = en.toLowerCase();
-    const chunks = [];
-    let i = 0;
-    const keys = Object.keys(CONF).sort((a,b)=>b.length-a.length);
-    while (i < low.length) {
-      let matched = null;
-      for (const k of keys) if (low.startsWith(k, i)) { matched = k; break; }
-      if (matched) {
-        const corr = en.slice(i, i+matched.length);
-        const options = dedupeCase([corr, ...CONF[matched]]).slice(0,3);
-        chunks.push({ correct:corr, options });
-        i += matched.length;
-      } else {
-        const corr = en[i];
-        const cLow = low[i];
-        let opts = [corr];
-        if (cLow==="c") opts=[corr,"k","ck"];
-        else if (cLow==="k") opts=[corr,"c","ck"];
-        else if (cLow==="s") opts=[corr,"sh","ch"];
-        else if (cLow==="f") opts=[corr,"ph","p"];
-        else if (cLow==="l") opts=[corr,"r","ll"];
-        else if (cLow==="r") opts=[corr,"l","rr"];
-        else if (cLow==="g") opts=[corr,"j","k"];
-        else if (cLow==="j") opts=[corr,"g","d"];
-        else if (cLow==="a") opts=[corr,"e","o"];
-        else if (cLow==="e") opts=[corr,"i","a"];
-        else if (cLow==="i") opts=[corr,"ee","e"];
-        else if (cLow==="o") opts=[corr,"oa","ow"];
-        else if (cLow==="u") opts=[corr,"oo","ou"];
-        else opts=[corr,corr];
-        chunks.push({ correct:corr, options: dedupeCase(opts).slice(0,3) });
-        i += 1;
-      }
-    }
-    return chunks;
-  }
-
-  let chunkState = null;
-  function startChunkPuzzle(word) {
-    const spell = (word.spell && Array.isArray(word.spell) && word.spell.length) ? word.spell : chunkWord(word.en);
-    chunkState = { spell, picks: new Array(spell.length).fill(null) };
-    chunkFeedback.textContent = "";
-    renderChunkSlots(); updateBuiltWord();
-  }
-  function renderChunkSlots() {
-    chunkSlots.innerHTML = "";
-    chunkState.spell.forEach((part, idx) => {
-      const slot = document.createElement("div");
-      slot.className = "chunkCard";
-      slot.innerHTML = `<div class="muted" style="margin-bottom:6px;">${idx+1}번째</div><div class="row" style="gap:6px;"></div>`;
-      const row = slot.querySelector(".row");
-      shuffle(part.options).forEach(opt => {
-        const b = document.createElement("button");
-        b.className = "secondary btnSmall";
-        b.textContent = opt;
-        b.addEventListener("click", () => {
-          chunkState.picks[idx] = opt;
-          renderChunkSlots(); updateBuiltWord();
-        });
-        if (chunkState.picks[idx] && String(chunkState.picks[idx]).toLowerCase() === String(opt).toLowerCase()) {
-          b.className = "btnSmall";
-          b.style.background = "#ecfdf3";
-          b.style.border = "1px solid #16a34a";
-          b.style.color = "#111827";
-        }
-        row.appendChild(b);
-      });
-      chunkSlots.appendChild(slot);
-    });
-  }
-  function updateBuiltWord() {
-    builtWordPill.textContent = `완성: ${chunkState.picks.map(x=>x||"□").join("")}`;
-  }
-  resetChunksBtn.addEventListener("click", () => {
-    if (!chunkState) return;
-    chunkState.picks.fill(null);
-    chunkFeedback.textContent = "";
-    renderChunkSlots(); updateBuiltWord();
-  });
-  checkChunksBtn.addEventListener("click", () => {
-    if (!quiz || !chunkState) return;
-    const w = quiz.order[quiz.i];
-    if (chunkState.picks.some(x=>!x)) { chunkFeedback.textContent="빈칸 있어요."; return; }
-    const ok = chunkState.spell.every((part,i)=>String(chunkState.picks[i]).toLowerCase()===String(part.correct).toLowerCase());
-    if (ok) {
-      chunkFeedback.textContent="정답! ✅ (+1점, +⭐1)";
-      quiz.score += 1;
-      meta.stars += 1;
-      meta.streak += 1;
-      if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
-      saveMeta();
-      scorePill.textContent = `점수 ${quiz.score}`;
-      if (autoSpeak.checked) speak(w.en);
-      nextBtn.style.display="inline-block";
-    } else {
-      chunkFeedback.textContent=`오답! 정답 "${w.en}"`;
-      meta.streak = 0;
-      if (!meta.wrongIds.includes(w.id)) meta.wrongIds.push(w.id);
-      saveMeta();
-    }
-  });
-
-  // 퀴즈
-  function startQuiz(mode, {review=false}={}) {
-    const pool = review ? getReviewPool() : currentPool();
-    if (words.length < 4) { alert("전체 단어가 최소 4개 필요합니다."); return; }
-    if (!review && pool.length < 4 && scopeSel.value === "weekly") {
-      alert("이번 주 단어가 4개 미만입니다. (최소 4개 필요)\n이번 주 체크를 더 하시거나, 누적으로 바꿔주세요.");
-      return;
-    }
-    if (review && pool.length === 0) { alert("틀린 단어 없음! 👍"); return; }
-
-    const order = shuffle([...pool]).slice(0, Math.min(pool.length, 20));
-    quiz = { mode, order, i: 0, score: 0, isReview: review };
-
-    if (!review) { meta.wrongIds = []; saveMeta(); }
-
-    gameCard.style.display = "block";
-    nextBtn.style.display = "none";
-    feedbackEl.textContent = "";
-    renderQuestion();
-  }
-
-  function renderQuestion() {
-    if (!quiz) return;
-    feedbackEl.textContent = "";
-    nextBtn.style.display = "none";
-    optionsEl.innerHTML = "";
-    chunkArea.style.display = "none";
-
-    const total = quiz.order.length;
-    const idx = quiz.i + 1;
-    idxPill.textContent = `${idx} / ${total}`;
-    scorePill.textContent = `점수 ${quiz.score}`;
-    bar.style.width = `${Math.round((quiz.i / total) * 100)}%`;
-
-    const w = quiz.order[quiz.i];
-    const pool = makeChoices(w, 4);
-
-    if (quiz.mode === "meaning") {
-      stageLabel.textContent = quiz.isReview ? "복습: 뜻" : "1단계: 뜻";
-      promptEl.textContent = w.en;
-      hintEl.textContent = "뜻 고르기";
-      pool.map(x => x.ko || "(뜻 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
-      return;
-    }
-    if (quiz.mode === "pron") {
-      stageLabel.textContent = quiz.isReview ? "복습: 발음" : "2단계: 발음(한글)";
-      promptEl.textContent = w.en;
-      hintEl.textContent = "발음 고르기";
-      pool.map(x => x.pron || "(발음 없음)").forEach((label, n) => addOptionButton(label, pool[n].id === w.id, w));
-      return;
-    }
-    if (quiz.mode === "spelling") {
-      stageLabel.textContent = quiz.isReview ? "복습: 스펠링" : "3단계: 스펠링(조각)";
-      promptEl.textContent = w.ko || "(뜻 없음)";
-      hintEl.textContent = "조각 선택";
-      chunkArea.style.display = "block";
-      startChunkPuzzle(w);
-      return;
-    }
-  }
-
-  function addOptionButton(label, isCorrect, w) {
-    const btn = document.createElement("button");
-    btn.textContent = label;
-    btn.addEventListener("click", () => onPick(btn, isCorrect, w));
-    optionsEl.appendChild(btn);
-  }
-
-  function onPick(btn, isCorrect, w) {
-    [...optionsEl.children].forEach(b => b.disabled = true);
-    if (isCorrect) {
-      btn.classList.add("correct");
-      quiz.score += 1;
-      meta.streak += 1;
-      meta.stars += 1;
-      if (meta.streak > 0 && meta.streak % 5 === 0) meta.stars += 2;
-      feedbackEl.textContent = "정답! 👍";
-      if (autoSpeak.checked) speak(w.en);
-    } else {
-      btn.classList.add("wrong");
-      feedbackEl.textContent = `오답! ${w.en}`;
-      meta.streak = 0;
-      if (!meta.wrongIds.includes(w.id)) meta.wrongIds.push(w.id);
-    }
-    saveMeta();
-    nextBtn.style.display = "inline-block";
-  }
-
-  nextBtn.addEventListener("click", () => {
-    if (!quiz) return;
-    quiz.i += 1;
-    if (quiz.i >= quiz.order.length) {
-      bar.style.width = `100%`;
-      alert(`끝! 점수: ${quiz.score}\n틀린 단어: ${meta.wrongIds.length}개`);
-      quiz = null;
-      gameCard.style.display = "none";
-      return;
-    }
-    renderQuestion();
-  });
-
-  skipBtn.addEventListener("click", () => {
-    if (!quiz) return;
-    meta.streak = 0;
-    saveMeta();
-    quiz.i += 1;
-    if (quiz.i >= quiz.order.length) {
-      bar.style.width = `100%`;
-      alert("끝!");
-      quiz = null;
-      gameCard.style.display = "none";
-      return;
-    }
-    renderQuestion();
-  });
-
-  function getReviewPool() {
-    const wrongSet = new Set(meta.wrongIds);
-    return words.filter(w => wrongSet.has(w.id));
-  }
-
-  reviewBtn.addEventListener("click", () => startQuiz(modeSel.value, {review:true}));
+  // ---------- start ----------
   startBtn.addEventListener("click", () => startQuiz(modeSel.value));
 
-  scopeSel.addEventListener("change", () => {
-    if (scopeSel.value === "weekly" && weeklyWords().length < 4) {
-      alert("이번 주 단어가 4개 미만입니다. (최소 4개 필요)\n이번 주 체크를 더 하시거나, 누적으로 바꿔주세요.");
-    }
-  });
-
-  function makeChoices(correct, n) {
-    const basePool = currentPool();
-    const others = basePool.filter(w => w.id !== correct.id);
-    const fallback = words.filter(w => w.id !== correct.id);
-    const src = (others.length >= n-1) ? others : fallback;
-    const picks = shuffle(src).slice(0, Math.max(0, n - 1));
-    return shuffle([correct, ...picks]);
-  }
-
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  // 시작
   seedDefaultWordsIfEmpty();
   renderCount();
   renderList();
   renderReward();
+
   const tts = loadTts();
   autoSpeak.checked = tts.autoSpeak;
   updateTtsNote();
 
-  // 폰 자동 게임화면만
   autoGameOnlyOnMobile();
 })();
 </script>
 </body>
 </html>
-
