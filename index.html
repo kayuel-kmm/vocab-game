@@ -538,7 +538,7 @@ body.gameOnly #nextRow{
     const voices = speechSynthesis.getVoices();
     bestEnVoice = voices.find(v => /^en(-|_)/i.test(v.lang)) || voices.find(v => /English/i.test(v.name)) || null;
   }
-  function speakOnce(text, rate=0.88) {
+  function speakOnce(text, rate=0.55) {
     if (!("speechSynthesis" in window)) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
@@ -550,9 +550,9 @@ body.gameOnly #nextRow{
     if (!("speechSynthesis" in window)) return;
     try { speechSynthesis.cancel(); } catch {}
     // 1) 자연스럽게
-    speakOnce(text, 0.92);
+    speakOnce(text, 0.45);
     // 2) 조금 더 천천히
-    setTimeout(() => speakOnce(text, 0.82), 650);
+    setTimeout(() => speakOnce(text, 0.60), 650);
   }
   function updateTtsNote() {
     const hasApi = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
@@ -989,4 +989,5 @@ body.gameOnly #nextRow{
 </script>
 </body>
 </html>
+
 
